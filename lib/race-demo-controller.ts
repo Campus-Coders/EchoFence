@@ -1,0 +1,389 @@
+/**
+ * lib/race-demo-controller.ts
+ * Deterministic Race Demo Controller for Hackathon Judges.
+ *
+ * Coordinates the full deterministic failure and recovery sequence:
+ * 1. Generation 1 starts with 4-second delayed tool.
+ * 2. User interruption triggered at T≈500ms.
+ * 3. Generation 2 begins immediately, executes, and completes as authoritative.
+ * 4. At T≈4000ms, Generation 1 delayed tool completes late.
+ * 5. Generation Fence intercepts and REJECTS the stale result.
+ * 6. Validates invariants: zero transcript corruption, zero audio resurrection, state preserved.
+ */
+
+import { generationFence } from "./generation-fence";
+import { interruptController } from "./interrupt-controller";
+import { searchHotelsDelayed, delayedToolRegistry } from "./delayed-tool";
+import { measurementPipeline } from "./measurement-pipeline";
+import type { MeasurementSnapshot } from "./measurement-types";
+import type { VoiceStateMachine } from "./voice-state-machine";
+import type { ConversationTurn } from "@/types/conversation";
+
+export type RaceDemoStatus =
+  | "IDLE"
+  | "RUNNING"
+  | "WAITING_FOR_LATE_RESULT"
+  | "PASSED"
+  | "FAILED";
+
+export type SystemInvariants = {
+  generationOwnership: boolean;
+  transcriptIntegrity: boolean;
+  audioIntegrity: boolean;
+  stateIntegrity: boolean;
+  fenceActive: boolean;
+};
+
+export type RaceDemoTimelineStep = {
+  id: string;
+  generation: 1 | 2;
+  title: string;
+  subtitle?: string;
+  timestamp: number;
+  type: "SUCCESS" | "INTERRUPTED" | "BLOCKED" | "INFO";
+};
+
+export type RaceDemoResult = {
+  status: RaceDemoStatus;
+  generation1: number | null;
+  generation2: number | null;
+  startTimestamp: number | null;
+  interruptionTimestamp: number | null;
+  gen2CompletionTimestamp: number | null;
+  lateCompletionTimestamp: number | null;
+  staleBlockTimestamp: number | null;
+  transcriptCorruption: number;
+  audioResurrections: number;
+  staleResultsBlocked: number;
+  recoveryTimeMs: number | null;
+  toolDelayMs: number;
+  invariantsPassed: boolean;
+  invariants: SystemInvariants;
+  timeline: RaceDemoTimelineStep[];
+  measurementSnapshot?: MeasurementSnapshot;
+};
+
+export type RaceDemoListener = (result: RaceDemoResult) => void;
+
+export class RaceDemoController {
+  private listeners: Set<RaceDemoListener> = new Set();
+  private state: RaceDemoResult = this.createInitialState();
+
+  private createInitialState(): RaceDemoResult {
+    return {
+      status: "IDLE",
+      generation1: null,
+      generation2: null,
+      startTimestamp: null,
+      interruptionTimestamp: null,
+      gen2CompletionTimestamp: null,
+      lateCompletionTimestamp: null,
+      staleBlockTimestamp: null,
+      transcriptCorruption: 0,
+      audioResurrections: 0,
+      staleResultsBlocked: 0,
+      recoveryTimeMs: null,
+      toolDelayMs: 4000,
+      invariantsPassed: false,
+      invariants: {
+        generationOwnership: false,
+        transcriptIntegrity: false,
+        audioIntegrity: false,
+        stateIntegrity: false,
+        fenceActive: true,
+      },
+      timeline: [],
+    };
+  }
+
+  public getState(): RaceDemoResult {
+    return { ...this.state };
+  }
+
+  public subscribe(listener: RaceDemoListener): () => void {
+    this.listeners.add(listener);
+    listener(this.getState());
+    return () => {
+      this.listeners.delete(listener);
+    };
+  }
+
+  private notify(): void {
+    const snapshot = this.getState();
+    for (const listener of this.listeners) {
+      try {
+        listener(snapshot);
+      } catch (err) {
+        console.error("[race-demo-controller] Listener error:", err);
+      }
+    }
+  }
+
+  private addTimelineStep(
+    generation: 1 | 2,
+    title: string,
+    subtitle?: string,
+    type: "SUCCESS" | "INTERRUPTED" | "BLOCKED" | "INFO" = "INFO"
+  ): void {
+    const step: RaceDemoTimelineStep = {
+      id: `step-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      generation,
+      title,
+      subtitle,
+      timestamp: Date.now(),
+      type,
+    };
+    this.state.timeline = [...this.state.timeline, step];
+    this.notify();
+  }
+
+  /**
+   * Executes the full deterministic race demo.
+   * Can accept existing UI state bindings or operate standalone.
+   */
+  public async runDemo(options?: {
+    stateMachine?: VoiceStateMachine;
+    setTurns?: React.Dispatch<React.SetStateAction<ConversationTurn[]>>;
+  }): Promise<RaceDemoResult> {
+    const sm = options?.stateMachine;
+    const setTurns = options?.setTurns;
+
+    // Reset controllers and local demo state
+    if (sm) sm.reset();
+    measurementPipeline.reset();
+    this.state = this.createInitialState();
+    this.state.status = "RUNNING";
+    const startT = Date.now();
+    this.state.startTimestamp = startT;
+    this.notify();
+
+    // ----------------------------------------------------
+    // STEP 1: Generation 1 Starts (T = 0ms)
+    // ----------------------------------------------------
+    const gen1 = generationFence.beginGeneration(
+      "race_demo",
+      "Gen 1: Hotel search with 4s delayed tool"
+    );
+    this.state.generation1 = gen1;
+    this.addTimelineStep(1, "Started", `Generation ${gen1} initiated`, "INFO");
+
+    if (sm) sm.transitionTo("LISTENING");
+    const gen1UserTurn: ConversationTurn = {
+      id: `turn-user-demo-gen1-${Date.now()}`,
+      role: "user",
+      text: "Find me a luxury hotel in Mumbai for Friday (4s delayed tool)",
+      timestamp: Date.now(),
+      generationId: gen1,
+    };
+    if (setTurns) setTurns((prev) => [...prev, gen1UserTurn]);
+
+    if (sm) sm.transitionTo("THINKING");
+
+    let audioResurrected = false;
+
+    // ----------------------------------------------------
+    // STEP 2: Gen 1 Starts 4000ms Delayed Tool (T ≈ 100ms)
+    // ----------------------------------------------------
+    await new Promise((r) => setTimeout(r, 100));
+    this.addTimelineStep(1, "Tool Started", "4000ms delayed searchHotelsDelayed active", "INFO");
+
+    // Execute delayed tool with respectAbort = false to simulate un-cancellable remote execution
+    const gen1ToolPromise = (async () => {
+      try {
+        const toolRes = await searchHotelsDelayed({
+          generationId: gen1,
+          delayMs: 4000,
+          respectAbort: false,
+          city: "Mumbai",
+        });
+
+        const lateFinishT = Date.now();
+        this.state.lateCompletionTimestamp = lateFinishT;
+        this.addTimelineStep(
+          1,
+          "Tool Completed Late",
+          `Finished after ${lateFinishT - startT}ms (active Gen is ${generationFence.getCurrentGeneration()})`,
+          "INTERRUPTED"
+        );
+
+        // GUARDED ASYNC BOUNDARY: Record stale result attempt as it reaches boundary
+        measurementPipeline.recordStaleResultAttempted(gen1);
+
+        if (!generationFence.isCurrent(gen1) || interruptController.isInterrupted(gen1)) {
+          this.state.staleBlockTimestamp = Date.now();
+          this.state.staleResultsBlocked++;
+
+          measurementPipeline.recordStaleResultBlocked(gen1);
+          measurementPipeline.recordStaleAssistantMessageBlocked(gen1);
+
+          generationFence.recordStaleBlocked(
+            gen1,
+            "stale_tool_result_blocked",
+            "race_demo",
+            `Gen 1 delayed tool result blocked by active Gen ${generationFence.getCurrentGeneration()}`
+          );
+          delayedToolRegistry.recordStaleBlocked();
+
+          this.addTimelineStep(
+            1,
+            "Stale Result Blocked",
+            `Rejected by Generation Fence: Gen ${gen1} is stale`,
+            "BLOCKED"
+          );
+          return; // Strictly rejected!
+        }
+
+        // Would erroneously commit if fence failed:
+        this.state.transcriptCorruption++;
+        measurementPipeline.recordTranscriptCorruption(gen1);
+        if (setTurns) {
+          setTurns((prev) => [
+            ...prev,
+            {
+              id: `turn-asst-corrupt-${Date.now()}`,
+              role: "assistant",
+              text: toolRes.data.searchSummary,
+              timestamp: Date.now(),
+              generationId: gen1,
+            },
+          ]);
+        }
+      } catch (err) {
+        console.warn("[race-demo-controller] Gen 1 tool error:", err);
+      }
+    })();
+
+    // ----------------------------------------------------
+    // STEP 3: User Interrupts Gen 1 (T ≈ 500ms)
+    // ----------------------------------------------------
+    await new Promise((r) => setTimeout(r, 400));
+    const interruptT = Date.now();
+    this.state.interruptionTimestamp = interruptT;
+
+    if (sm) sm.transitionTo("INTERRUPTED");
+    const intResult = interruptController.interrupt(gen1, "user_barge_in");
+    this.addTimelineStep(1, "User Interrupted", `Barge-in: audio halted (${intResult.audioStopLatencyMs}ms)`, "INTERRUPTED");
+
+    // Invalidate Gen 1 in state machine & recover
+    if (sm && sm.getState() === "INTERRUPTED") {
+      sm.transitionTo("RECOVERING");
+    }
+
+    // ----------------------------------------------------
+    // STEP 4: Generation 2 Starts & Becomes Authoritative
+    // ----------------------------------------------------
+    if (sm && sm.getState() === "RECOVERING") {
+      sm.transitionTo("LISTENING");
+    }
+
+    const gen2 = generationFence.beginGeneration(
+      "race_demo",
+      "Gen 2: Urgent barge-in update (Pune Saturday under 5000)"
+    );
+    measurementPipeline.recordGenerationActivated(gen2);
+    this.state.generation2 = gen2;
+    this.addTimelineStep(2, "Started", `Generation ${gen2} initiated`, "INFO");
+    this.addTimelineStep(2, "Became Authoritative", `Monotonic ID ${gen2} supersedes Gen ${gen1}`, "SUCCESS");
+
+    const recoveryMs = Date.now() - interruptT;
+    this.state.recoveryTimeMs = recoveryMs;
+
+    const gen2UserTurn: ConversationTurn = {
+      id: `turn-user-demo-gen2-${Date.now()}`,
+      role: "user",
+      text: "Forget Mumbai! Find Trident Nariman Point for Saturday under 5,000 rupees",
+      timestamp: Date.now(),
+      generationId: gen2,
+    };
+    if (setTurns) setTurns((prev) => [...prev, gen2UserTurn]);
+
+    // ----------------------------------------------------
+    // STEP 5: Generation 2 Completes Normally
+    // ----------------------------------------------------
+    if (sm) sm.transitionTo("THINKING");
+    await new Promise((r) => setTimeout(r, 250));
+
+    if (generationFence.isCurrent(gen2)) {
+      if (sm) sm.transitionTo("SPEAKING");
+
+      const gen2AsstTurn: ConversationTurn = {
+        id: `turn-asst-demo-gen2-${Date.now()}`,
+        role: "assistant",
+        text: "Updated for Saturday under 5,000 rupees: Found Trident Nariman Point at 4,800 rupees per night.",
+        timestamp: Date.now(),
+        generationId: gen2,
+        audioAvailable: false,
+      };
+      if (setTurns) setTurns((prev) => [...prev, gen2AsstTurn]);
+
+      await new Promise((r) => setTimeout(r, 250));
+      generationFence.completeGeneration(gen2, "race_demo");
+      if (sm) sm.transitionTo("IDLE");
+
+      this.state.gen2CompletionTimestamp = Date.now();
+      this.addTimelineStep(2, "Completed Normally", "Transcript & state owned by Gen 2", "SUCCESS");
+    }
+
+    // ----------------------------------------------------
+    // STEP 6: Waiting for Late Gen 1 Result (up to 4000ms)
+    // ----------------------------------------------------
+    this.state.status = "WAITING_FOR_LATE_RESULT";
+    this.notify();
+
+    // Await late tool execution
+    await gen1ToolPromise;
+
+    // Verify late audio callback cannot resurrect
+    const staleAudioAttempt = () => {
+      if (!generationFence.isCurrent(gen1) || interruptController.isInterrupted(gen1)) {
+        generationFence.recordStaleBlocked(gen1, "stale_audio_blocked", "race_demo");
+        measurementPipeline.recordStaleAudioBlocked(gen1);
+        return;
+      }
+      audioResurrected = true;
+      this.state.audioResurrections++;
+      measurementPipeline.recordAudioResurrection(gen1);
+    };
+    staleAudioAttempt();
+
+    // ----------------------------------------------------
+    // STEP 7: Validate Final Invariants
+    // ----------------------------------------------------
+    const invariants: SystemInvariants = {
+      generationOwnership: generationFence.getCurrentGeneration() === gen2,
+      transcriptIntegrity: this.state.transcriptCorruption === 0,
+      audioIntegrity: !audioResurrected && this.state.audioResurrections === 0,
+      stateIntegrity: sm ? sm.getState() === "IDLE" : true,
+      fenceActive: true,
+    };
+
+    const allPassed =
+      invariants.generationOwnership &&
+      invariants.transcriptIntegrity &&
+      invariants.audioIntegrity &&
+      invariants.stateIntegrity &&
+      invariants.fenceActive &&
+      this.state.staleResultsBlocked > 0;
+
+    const measurementSnap = measurementPipeline.getSnapshot();
+    this.state.measurementSnapshot = measurementSnap;
+    if (measurementSnap.recovery.recoveryTimeMs !== null) {
+      this.state.recoveryTimeMs = measurementSnap.recovery.recoveryTimeMs;
+    }
+    measurementPipeline.completeRun(`race-demo-${Date.now()}`);
+
+    this.state.invariants = invariants;
+    this.state.invariantsPassed = allPassed;
+    this.state.status = allPassed ? "PASSED" : "FAILED";
+    this.notify();
+
+    return this.getState();
+  }
+
+  public reset(): void {
+    this.state = this.createInitialState();
+    this.notify();
+  }
+}
+
+export const raceDemoController = new RaceDemoController();
