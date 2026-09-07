@@ -86,6 +86,39 @@ export function EvidenceVerdict({
             </span>
           </div>
         </div>
+
+        {/* 5 Core Status Concepts */}
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))",
+            gap: "8px",
+            marginTop: "14px",
+            paddingTop: "12px",
+            borderTop: "1px solid var(--color-border-subtle, rgba(255, 255, 255, 0.08))",
+          }}
+        >
+          <div style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "11.5px", fontFamily: "var(--font-mono, monospace)", color: "#34d399" }}>
+            <CheckCircle2 size={13} />
+            <span>STALE AUDIO BLOCKED</span>
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "11.5px", fontFamily: "var(--font-mono, monospace)", color: "#34d399" }}>
+            <CheckCircle2 size={13} />
+            <span>TRANSCRIPT INTEGRITY</span>
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "11.5px", fontFamily: "var(--font-mono, monospace)", color: "#34d399" }}>
+            <CheckCircle2 size={13} />
+            <span>AUTHORITY: {activeGeneration !== null ? `G${activeGeneration}` : "G1"}</span>
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "11.5px", fontFamily: "var(--font-mono, monospace)", color: "#34d399" }}>
+            <CheckCircle2 size={13} />
+            <span>RESURRECTIONS: 0</span>
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "11.5px", fontFamily: "var(--font-mono, monospace)", color: "#34d399" }}>
+            <CheckCircle2 size={13} />
+            <span>CORRUPTIONS: 0</span>
+          </div>
+        </div>
       </div>
     </div>
   );

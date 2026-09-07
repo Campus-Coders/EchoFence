@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { Play, Loader2, Sparkles, RefreshCw } from "lucide-react";
 import { raceDemoController, type RaceDemoResult } from "@/lib/race-demo-controller";
+import { generationAwareAudio } from "@/lib/generation-aware-audio";
 import { RaceTimeline } from "./RaceTimeline";
 import { InvariantPanel } from "./InvariantPanel";
 import { DemoResultCard } from "./DemoResultCard";
@@ -35,6 +36,7 @@ export function RaceDemoPanel({
 
   const handleRunDemo = async (): Promise<void> => {
     if (isRunning) return;
+    void generationAwareAudio.ensureAudioUnlocked();
     await raceDemoController.runDemo({
       stateMachine,
       setTurns,
@@ -52,13 +54,13 @@ export function RaceDemoPanel({
         <div className="race-demo-hero-text">
           <div className="race-demo-tag">
             <Sparkles size={13} />
-            DATA FORGE 2026 x RIME HACKATHON
+            DETERMINISTIC RACE REPLAY
           </div>
           <h2 className="race-demo-heading">
-            EchoFence: Race-Safe Voice Agent Demonstration
+            Deterministic Interruption & Race Scenario Replay
           </h2>
           <p className="race-demo-subtext">
-            Run the deterministic race to see a late asynchronous tool result attempt to overwrite a newer user request. EchoFence blocks the stale result before it can affect the transcript, audio, or voice state.
+            Execute the deterministic 4000ms delayed tool race interrupted by Gen 2 barge-in to prove late Gen 1 tool results are strictly blocked.
           </p>
         </div>
 

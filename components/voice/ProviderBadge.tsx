@@ -51,16 +51,37 @@ export function ProviderBadge({
   }, []);
 
   const isConfigured = status?.configured ?? false;
+  const isMockFallback = status?.mode === "mock";
   const providerName = isConfigured
-    ? (status?.provider ?? "Rime")
+    ? isMockFallback
+      ? "Rime (Mock Fallback)"
+      : (status?.provider ?? "Rime")
     : "Not configured";
   const model = status?.selectedModel ?? "—";
   const voice = status?.selectedVoice ?? "—";
   const note =
     status?.note ??
     (isConfigured
-      ? "Rime active as primary voice synthesis provider"
+      ? isMockFallback
+        ? "Hermetic mock provider active (offline fallback/testing mode)"
+        : "Rime active as primary voice synthesis provider"
       : "RIME_API_KEY not configured. Add to .env.local to activate.");
+
+  const badgeClass = loading
+    ? "status-pill"
+    : isConfigured && !isMockFallback
+    ? "status-pill status-pill-ready"
+    : isConfigured && isMockFallback
+    ? "status-pill status-pill-active"
+    : "status-pill";
+
+  const badgeText = loading
+    ? "Checking..."
+    : isConfigured && !isMockFallback
+    ? "Rime Active"
+    : isConfigured && isMockFallback
+    ? "Fallback / Mock"
+    : "Not Configured";
 
   return (
     <div className="console-card">
@@ -69,27 +90,23 @@ export function ProviderBadge({
           <Radio size={16} />
           Speech Provider
         </span>
-        <span
-          className={
-            isConfigured ? "status-pill status-pill-ready" : "status-pill"
-          }
-        >
+        <span className={badgeClass} data-testid="provider-status-badge">
           <span className={isConfigured ? "status-dot status-dot-pulse" : "status-dot"} />
-          {loading ? "Checking..." : isConfigured ? "Connected" : "Not configured"}
+          {badgeText}
         </span>
       </div>
       <div className="provider-box">
         <div className="provider-row">
           <span className="provider-label">Provider:</span>
-          <span className="provider-value">{providerName}</span>
+          <span className="provider-value" data-testid="provider-name">{providerName}</span>
         </div>
         <div className="provider-row">
           <span className="provider-label">Model:</span>
-          <span className="provider-value">{model}</span>
+          <span className="provider-value" data-testid="provider-model">{model}</span>
         </div>
         <div className="provider-row">
           <span className="provider-label">Voice:</span>
-          <span className="provider-value">{voice}</span>
+          <span className="provider-value" data-testid="provider-voice">{voice}</span>
         </div>
         <div className="provider-note">{note}</div>
       </div>

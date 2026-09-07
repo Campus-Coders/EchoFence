@@ -34,7 +34,7 @@ export class VoiceStateMachine {
    */
   public canTransitionTo(nextState: VoiceState): boolean {
     if (nextState === this.currentState) {
-      return false;
+      return true; // Idempotent self-transition is safe
     }
     const allowed = VALID_VOICE_TRANSITIONS[this.currentState];
     return allowed.includes(nextState);
@@ -44,6 +44,11 @@ export class VoiceStateMachine {
    * Attempts to execute a transition. Returns true if successful, false otherwise.
    */
   public transitionTo(nextState: VoiceState): boolean {
+    // Harmless repeated transitions to the already-current state are idempotent
+    if (nextState === this.currentState) {
+      return true;
+    }
+
     if (!this.canTransitionTo(nextState)) {
       console.warn(
         `[state-machine] Invalid transition rejected: ${this.currentState} -> ${nextState}`

@@ -9,22 +9,13 @@ interface EvidenceEventLogProps {
 }
 
 export function EvidenceEventLog({ events }: EvidenceEventLogProps): React.JSX.Element {
-  if (!events || events.length === 0) {
-    return (
-      <div className="event-log-card console-card">
-        <div className="event-log-header">
-          <div className="flex items-center gap-2">
-            <Terminal size={16} className="text-accent" />
-            <span className="event-log-title">Chronological Audit Event Trace</span>
-          </div>
-          <span className="status-pill text-xs">0 Events</span>
-        </div>
-        <div className="event-log-empty text-muted text-sm py-4 text-center">
-          No audit events recorded yet.
-        </div>
-      </div>
-    );
-  }
+  const [activeEvents, setActiveEvents] = React.useState<GenerationAuditEvent[]>([]);
+
+  React.useEffect(() => {
+    setActiveEvents(events || []);
+  }, [events]);
+
+  const isEmpty = activeEvents.length === 0;
 
   const renderBadge = (eventType: string) => {
     if (eventType.includes("blocked")) {
@@ -67,38 +58,44 @@ export function EvidenceEventLog({ events }: EvidenceEventLogProps): React.JSX.E
           <span className="event-log-title">Chronological Audit Event Trace</span>
         </div>
         <span className="status-pill text-xs font-mono">
-          {events.length} Events Logged
+          {isEmpty ? "0 Events" : `${activeEvents.length} Events Logged`}
         </span>
       </div>
 
-      <div className="event-log-table-wrapper">
-        <table className="event-log-table">
-          <thead>
-            <tr>
-              <th style={{ width: "100px" }}>Time</th>
-              <th style={{ width: "80px" }}>Gen ID</th>
-              <th style={{ width: "240px" }}>Event Type</th>
-              <th>Operational Details</th>
-            </tr>
-          </thead>
-          <tbody>
-            {events.slice(0, 15).map((evt) => (
-              <tr key={evt.id} className="event-log-row">
-                <td className="font-mono text-xs text-muted">
-                  {new Date(evt.timestamp).toLocaleTimeString()}
-                </td>
-                <td className="font-mono text-xs font-semibold">
-                  Gen #{evt.generationId}
-                </td>
-                <td>{renderBadge(evt.event)}</td>
-                <td className="font-mono text-xs text-secondary truncate max-w-md">
-                  {evt.details || "—"}
-                </td>
+      {isEmpty ? (
+        <div className="event-log-empty text-muted text-sm py-4 text-center">
+          No audit events recorded yet.
+        </div>
+      ) : (
+        <div className="event-log-table-wrapper">
+          <table className="event-log-table">
+            <thead>
+              <tr>
+                <th style={{ width: "100px" }}>Time</th>
+                <th style={{ width: "80px" }}>Gen ID</th>
+                <th style={{ width: "240px" }}>Event Type</th>
+                <th>Operational Details</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+            </thead>
+            <tbody>
+              {activeEvents.slice(0, 15).map((evt) => (
+                <tr key={evt.id} className="event-log-row">
+                  <td className="font-mono text-xs text-muted">
+                    {new Date(evt.timestamp).toLocaleTimeString()}
+                  </td>
+                  <td className="font-mono text-xs font-semibold">
+                    Gen #{evt.generationId}
+                  </td>
+                  <td>{renderBadge(evt.event)}</td>
+                  <td className="font-mono text-xs text-secondary truncate max-w-md">
+                    {evt.details || "—"}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   );
 }

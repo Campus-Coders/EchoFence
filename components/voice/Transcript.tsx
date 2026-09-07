@@ -8,23 +8,36 @@ export type TranscriptProps = {
 
 export function Transcript({ items = [] }: TranscriptProps): React.JSX.Element {
   const hasItems = items.length > 0;
+  const listRef = React.useRef<HTMLDivElement>(null);
+
+  React.useEffect(() => {
+    if (listRef.current) {
+      listRef.current.scrollTop = listRef.current.scrollHeight;
+    }
+  }, [items]);
 
   return (
-    <div className="console-card console-card-fill">
+    <div className="console-card transcript-card">
       <div className="console-card-header">
-        <span className="console-card-title">
-          <MessageSquare size={16} />
-          Conversation Transcript
-        </span>
-        <span className="status-pill">
-          {hasItems ? `${items.length} ${items.length === 1 ? "turn" : "turns"}` : "0 Turns"}
-        </span>
+        <div className="flex items-center gap-2">
+          <MessageSquare size={16} className="text-cyan-400" />
+          <span className="console-card-title">Conversation Transcript</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="status-pill status-pill-ready" style={{ fontSize: "11px", padding: "4px 10px" }}>
+            <span className="status-dot status-dot-pulse" />
+            Provider: Rime
+          </span>
+          <span className="status-pill" style={{ fontSize: "11px", padding: "4px 10px" }}>
+            {hasItems ? `${items.length} ${items.length === 1 ? "turn" : "turns"}` : "0 Turns"}
+          </span>
+        </div>
       </div>
 
       {!hasItems ? (
         <div className="transcript-empty-state">
           <div className="transcript-empty-icon">
-            <Mic size={24} />
+            <Mic size={22} />
           </div>
           <h3 className="transcript-empty-title">Conversation Ready</h3>
           <p className="transcript-empty-desc">
@@ -32,7 +45,7 @@ export function Transcript({ items = [] }: TranscriptProps): React.JSX.Element {
           </p>
         </div>
       ) : (
-        <div className="transcript-list">
+        <div className="transcript-list" ref={listRef}>
           {items.map((turn) => {
             const isUser = turn.role === "user";
             const dateStr = new Date(turn.timestamp).toLocaleTimeString([], {

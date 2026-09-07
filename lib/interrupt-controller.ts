@@ -402,4 +402,15 @@ export class InterruptController {
   }
 }
 
-export const interruptController = new InterruptController();
+// Canonical Singleton Anchor on globalThis
+const globalForInterrupt = globalThis as unknown as {
+  __ECHOFENCE_INTERRUPT_CONTROLLER__?: InterruptController;
+};
+
+export const interruptController: InterruptController =
+  globalForInterrupt.__ECHOFENCE_INTERRUPT_CONTROLLER__ ?? new InterruptController();
+
+if (!globalForInterrupt.__ECHOFENCE_INTERRUPT_CONTROLLER__) {
+  globalForInterrupt.__ECHOFENCE_INTERRUPT_CONTROLLER__ = interruptController;
+}
+

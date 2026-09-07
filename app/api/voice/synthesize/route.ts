@@ -9,6 +9,7 @@ type SynthesizeRequestBody = {
   generationId?: unknown;
   requestId?: unknown;
   authorize?: unknown;
+  format?: unknown;
 };
 
 /**
@@ -56,6 +57,13 @@ export async function POST(req: Request): Promise<NextResponse> {
     const voice = typeof body.voice === "string" ? body.voice : undefined;
     const model = typeof body.model === "string" ? body.model : undefined;
 
+    const acceptHeader = req.headers.get("accept") || "";
+    const wantsAudio =
+      acceptHeader.includes("audio/") ||
+      body.format === "binary" ||
+      body.format === "audio";
+    const wantsJson = body.format === "json" || !wantsAudio;
+
     // Optional Step 12 Generation-Aware Authorization Mode
     if (Boolean(body.authorize)) {
       const outcome = await generationAwareSynthesis.synthesizeForGeneration(
@@ -69,6 +77,33 @@ export async function POST(req: Request): Promise<NextResponse> {
       );
 
       if (outcome.kind === "authorized") {
+        const contentType = outcome.result.contentType || "audio/mpeg";
+        const audioSource =
+          outcome.result.audioSource ||
+          (rimeProviderAdapter.getMode() === "real"
+            ? "REAL_RIME_AUDIO"
+            : "FALLBACK_SYNTHETIC_AUDIO");
+
+        if (!wantsJson) {
+          return new NextResponse(outcome.result.audioBuffer, {
+            status: 200,
+            headers: {
+              "Content-Type": contentType,
+              "Content-Length": String(outcome.result.audioBuffer.byteLength),
+              "X-Generation-Id": String(outcome.result.generationId),
+              "X-Request-Id": outcome.result.requestId,
+              "X-Audio-Available": "true",
+              "X-Audio-Source": audioSource,
+              "X-Provider": outcome.result.provider || "Rime",
+              "X-Model": outcome.result.model || "",
+              "X-Voice": outcome.result.voice || "",
+              "X-Authorized": "true",
+              "X-Duration-Ms": String(outcome.result.providerLatencyMs ?? 0),
+              "Cache-Control": "no-store, no-cache, must-revalidate",
+            },
+          });
+        }
+
         const base64Audio = Buffer.from(outcome.result.audioBuffer).toString("base64");
         return NextResponse.json({
           success: true,
@@ -76,7 +111,8 @@ export async function POST(req: Request): Promise<NextResponse> {
             authorized: true,
             audioAvailable: true,
             audioBase64: base64Audio,
-            contentType: outcome.result.contentType,
+            audioSource,
+            contentType,
             provider: outcome.result.provider,
             model: outcome.result.model,
             voice: outcome.result.voice,
@@ -89,19 +125,29 @@ export async function POST(req: Request): Promise<NextResponse> {
       }
 
       if (outcome.kind === "stale") {
-        return NextResponse.json({
-          success: true,
-          data: {
-            authorized: false,
-            audioAvailable: false,
-            stale: true,
-            reason: outcome.reason,
-            generationId: outcome.generationId,
-            requestId: outcome.requestId,
-            activeGeneration: outcome.activeGeneration,
-            status: "stale",
+        return NextResponse.json(
+          {
+            success: true,
+            data: {
+              authorized: false,
+              audioAvailable: false,
+              stale: true,
+              reason: outcome.reason,
+              generationId: outcome.generationId,
+              requestId: outcome.requestId,
+              activeGeneration: outcome.activeGeneration,
+              status: "stale",
+            },
           },
-        });
+          {
+            status: 200,
+            headers: {
+              "X-Generation-Id": String(outcome.generationId),
+              "X-Audio-Available": "false",
+              "X-Stale": "true",
+            },
+          }
+        );
       }
 
       if (outcome.kind === "cancelled") {
@@ -138,6 +184,32 @@ export async function POST(req: Request): Promise<NextResponse> {
     });
 
     if (result.status === "completed" && result.audioBuffer) {
+      const contentType = result.contentType || "audio/mpeg";
+      const audioSource =
+        result.audioSource ||
+        (rimeProviderAdapter.getMode() === "real"
+          ? "REAL_RIME_AUDIO"
+          : "FALLBACK_SYNTHETIC_AUDIO");
+
+      if (!wantsJson) {
+        return new NextResponse(result.audioBuffer, {
+          status: 200,
+          headers: {
+            "Content-Type": contentType,
+            "Content-Length": String(result.audioBuffer.byteLength),
+            "X-Generation-Id": String(result.generationId),
+            "X-Request-Id": result.requestId,
+            "X-Audio-Available": "true",
+            "X-Audio-Source": audioSource,
+            "X-Provider": result.provider || "Rime",
+            "X-Model": result.model || "",
+            "X-Voice": result.voice || "",
+            "X-Duration-Ms": String(result.latencyMs ?? 0),
+            "Cache-Control": "no-store, no-cache, must-revalidate",
+          },
+        });
+      }
+
       const base64Audio = Buffer.from(result.audioBuffer).toString("base64");
 
       return NextResponse.json({
@@ -145,7 +217,8 @@ export async function POST(req: Request): Promise<NextResponse> {
         data: {
           audioAvailable: true,
           audioBase64: base64Audio,
-          contentType: result.contentType || "audio/mpeg",
+          audioSource,
+          contentType,
           provider: result.provider || "Rime",
           model: result.model,
           voice: result.voice,
@@ -158,18 +231,28 @@ export async function POST(req: Request): Promise<NextResponse> {
     }
 
     if (result.errorCode === "NOT_CONFIGURED") {
-      return NextResponse.json({
-        success: true,
-        data: {
-          audioAvailable: false,
-          provider: "Rime",
-          generationId: result.generationId,
-          requestId: result.requestId,
-          status: result.status,
-          errorCode: result.errorCode,
-          reason: result.error || "Provider API key is not configured. Live audio synthesis unavailable.",
+      return NextResponse.json(
+        {
+          success: true,
+          data: {
+            audioAvailable: false,
+            provider: "Rime",
+            generationId: result.generationId,
+            requestId: result.requestId,
+            status: result.status,
+            errorCode: result.errorCode,
+            reason: result.error || "Provider API key is not configured. Live audio synthesis unavailable.",
+          },
         },
-      });
+        {
+          status: 200,
+          headers: {
+            "X-Generation-Id": String(result.generationId),
+            "X-Audio-Available": "false",
+            "X-Error-Code": result.errorCode || "NOT_CONFIGURED",
+          },
+        }
+      );
     }
 
     return NextResponse.json(

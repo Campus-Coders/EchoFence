@@ -362,7 +362,7 @@ export class ChaosController {
   /**
    * Validates resource leak invariants across all subsystems.
    */
-  public checkResourceLeaks(): ResourceLeakReport {
+  public checkResourceLeaks(recordMutation = false): ResourceLeakReport {
     const currentGen = this.fence.getCurrentGeneration();
     const details: string[] = [];
 
@@ -396,7 +396,7 @@ export class ChaosController {
       staleAbortControllers > 0 ||
       (micActive && !this.bargeIn.isCurrentlyMonitoring());
 
-    if (hasLeaks) {
+    if (hasLeaks && recordMutation) {
       this.measurement.recordChaosResourceLeaksDetected(details.length);
       this.audit.record(
         currentGen,

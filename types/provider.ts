@@ -32,12 +32,17 @@ export type VoiceProviderErrorCode =
 export type SafeProviderStatus = {
   configured: boolean;
   provider: string;
-  mode?: "real" | "mock";
+  mode?: "real" | "mock" | "fallback";
   selectedModel: string;
   selectedVoice: string;
+  selectedLanguage: string;
   language: string;
   audioFormat: string;
   transport: string;
+  lastProviderStatus?: string;
+  lastProviderStatusCode?: number | null;
+  lastProviderError?: string | null;
+  lastAudioSource?: "REAL_RIME_AUDIO" | "FALLBACK_SYNTHETIC_AUDIO" | null;
   note?: string;
 };
 
@@ -72,6 +77,7 @@ export interface VoiceProviderResult {
   audioData?: ArrayBuffer | string;
   contentType?: string;
   provider?: string;
+  audioSource?: "REAL_RIME_AUDIO" | "FALLBACK_SYNTHETIC_AUDIO";
   model?: string;
   voice?: string;
   latencyMs?: number;
@@ -87,6 +93,7 @@ export interface AuthorizedSynthesisResult {
   audioData?: ArrayBuffer | string;
   contentType: string;
   provider: string;
+  audioSource?: "REAL_RIME_AUDIO" | "FALLBACK_SYNTHETIC_AUDIO";
   model?: string;
   voice?: string;
   providerLatencyMs: number;

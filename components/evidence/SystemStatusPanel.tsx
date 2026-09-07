@@ -21,9 +21,34 @@ interface SystemStatusPanelProps {
   status: SystemStatusMetrics;
 }
 
+const SSR_DEFAULT_STATUS: SystemStatusMetrics = {
+  currentGeneration: 0,
+  generationAuthorityStatus: "IDLE",
+  activeAudioPlaybackCount: 0,
+  activeStreamingCount: 0,
+  activeAbortControllerCount: 0,
+  microphoneMonitoringState: "IDLE",
+  staleResultAttempts: 0,
+  staleResultsBlocked: 0,
+  staleResultProtectionRate: 100,
+  audioResurrectionCount: 0,
+  transcriptCorruptionCount: 0,
+  resourceLeakCount: 0,
+  chaosSafetyRate: 100,
+  timestamp: 0,
+};
+
 export function SystemStatusPanel({ status }: SystemStatusPanelProps): React.JSX.Element {
+  const [activeStatus, setActiveStatus] = React.useState<SystemStatusMetrics>(SSR_DEFAULT_STATUS);
+
+  React.useEffect(() => {
+    setActiveStatus(status);
+  }, [status]);
+
+  const currentStatus = activeStatus;
+
   return (
-    <div className="rounded-xl border border-slate-800 bg-slate-900/80 p-5 shadow-xl backdrop-blur">
+    <div className="system-status-panel rounded-xl border border-slate-800 bg-slate-900/80 p-5 shadow-xl backdrop-blur">
       <div className="mb-4 flex items-center justify-between border-b border-slate-800 pb-3">
         <div className="flex items-center gap-2">
           <Activity size={20} className="text-cyan-400" />
@@ -33,15 +58,15 @@ export function SystemStatusPanel({ status }: SystemStatusPanelProps): React.JSX
         </div>
         <span
           className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-bold uppercase tracking-wider ${
-            status.generationAuthorityStatus === "ACTIVE"
+            currentStatus.generationAuthorityStatus === "ACTIVE"
               ? "bg-emerald-500/15 text-emerald-400 border border-emerald-500/30"
-              : status.generationAuthorityStatus === "INTERRUPTED"
+              : currentStatus.generationAuthorityStatus === "INTERRUPTED"
               ? "bg-amber-500/15 text-amber-400 border border-amber-500/30"
               : "bg-slate-700/40 text-slate-400 border border-slate-700"
           }`}
         >
           <span className="h-1.5 w-1.5 rounded-full bg-current animate-pulse" />
-          Authority: {status.generationAuthorityStatus}
+          Authority: {currentStatus.generationAuthorityStatus}
         </span>
       </div>
 
@@ -52,7 +77,7 @@ export function SystemStatusPanel({ status }: SystemStatusPanelProps): React.JSX
             <Cpu size={14} className="text-cyan-400" /> Current Generation
           </span>
           <span className="mt-1 text-xl font-mono font-bold text-slate-100" data-testid="metric-current-generation">
-            G{status.currentGeneration}
+            G{currentStatus.currentGeneration}
           </span>
         </div>
 
@@ -62,7 +87,7 @@ export function SystemStatusPanel({ status }: SystemStatusPanelProps): React.JSX
             <Volume2 size={14} className="text-emerald-400" /> Active Audio Nodes
           </span>
           <span className="mt-1 text-xl font-mono font-bold text-slate-100" data-testid="metric-active-audio">
-            {status.activeAudioPlaybackCount}
+            {currentStatus.activeAudioPlaybackCount}
           </span>
         </div>
 
@@ -72,7 +97,7 @@ export function SystemStatusPanel({ status }: SystemStatusPanelProps): React.JSX
             <Radio size={14} className="text-cyan-400" /> Active Streams
           </span>
           <span className="mt-1 text-xl font-mono font-bold text-slate-100" data-testid="metric-active-streams">
-            {status.activeStreamingCount}
+            {currentStatus.activeStreamingCount}
           </span>
         </div>
 
@@ -82,7 +107,7 @@ export function SystemStatusPanel({ status }: SystemStatusPanelProps): React.JSX
             <XCircle size={14} className="text-amber-400" /> Active Controllers
           </span>
           <span className="mt-1 text-xl font-mono font-bold text-slate-100" data-testid="metric-active-controllers">
-            {status.activeAbortControllerCount}
+            {currentStatus.activeAbortControllerCount}
           </span>
         </div>
 
@@ -92,7 +117,7 @@ export function SystemStatusPanel({ status }: SystemStatusPanelProps): React.JSX
             <Mic size={14} className="text-purple-400" /> Mic Monitoring
           </span>
           <span className="mt-1 text-base font-semibold text-slate-200 uppercase" data-testid="metric-mic-state">
-            {status.microphoneMonitoringState}
+            {currentStatus.microphoneMonitoringState}
           </span>
         </div>
 
@@ -102,7 +127,7 @@ export function SystemStatusPanel({ status }: SystemStatusPanelProps): React.JSX
             <AlertTriangle size={14} className="text-amber-400" /> Stale Attempts
           </span>
           <span className="mt-1 text-xl font-mono font-bold text-slate-100" data-testid="metric-stale-attempts">
-            {status.staleResultAttempts}
+            {currentStatus.staleResultAttempts}
           </span>
         </div>
 
@@ -112,7 +137,7 @@ export function SystemStatusPanel({ status }: SystemStatusPanelProps): React.JSX
             <Ban size={14} className="text-emerald-400" /> Stale Blocked
           </span>
           <span className="mt-1 text-xl font-mono font-bold text-emerald-400" data-testid="metric-stale-blocked">
-            {status.staleResultsBlocked}
+            {currentStatus.staleResultsBlocked}
           </span>
         </div>
 
@@ -122,7 +147,7 @@ export function SystemStatusPanel({ status }: SystemStatusPanelProps): React.JSX
             <ShieldCheck size={14} className="text-emerald-400" /> Protection Rate
           </span>
           <span className="mt-1 text-xl font-mono font-bold text-emerald-400" data-testid="metric-protection-rate">
-            {status.staleResultProtectionRate}%
+            {currentStatus.staleResultProtectionRate}%
           </span>
         </div>
 
@@ -133,11 +158,11 @@ export function SystemStatusPanel({ status }: SystemStatusPanelProps): React.JSX
           </span>
           <span
             className={`mt-1 text-xl font-mono font-bold ${
-              status.audioResurrectionCount === 0 ? "text-emerald-400" : "text-rose-500"
+              currentStatus.audioResurrectionCount === 0 ? "text-emerald-400" : "text-rose-500"
             }`}
             data-testid="metric-audio-resurrections"
           >
-            {status.audioResurrectionCount}
+            {currentStatus.audioResurrectionCount}
           </span>
         </div>
 
@@ -148,11 +173,11 @@ export function SystemStatusPanel({ status }: SystemStatusPanelProps): React.JSX
           </span>
           <span
             className={`mt-1 text-xl font-mono font-bold ${
-              status.transcriptCorruptionCount === 0 ? "text-emerald-400" : "text-rose-500"
+              currentStatus.transcriptCorruptionCount === 0 ? "text-emerald-400" : "text-rose-500"
             }`}
             data-testid="metric-transcript-corruptions"
           >
-            {status.transcriptCorruptionCount}
+            {currentStatus.transcriptCorruptionCount}
           </span>
         </div>
 
@@ -163,11 +188,11 @@ export function SystemStatusPanel({ status }: SystemStatusPanelProps): React.JSX
           </span>
           <span
             className={`mt-1 text-xl font-mono font-bold ${
-              status.resourceLeakCount === 0 ? "text-emerald-400" : "text-rose-500"
+              currentStatus.resourceLeakCount === 0 ? "text-emerald-400" : "text-rose-500"
             }`}
             data-testid="metric-resource-leaks"
           >
-            {status.resourceLeakCount}
+            {currentStatus.resourceLeakCount}
           </span>
         </div>
 
@@ -178,11 +203,11 @@ export function SystemStatusPanel({ status }: SystemStatusPanelProps): React.JSX
           </span>
           <span
             className={`mt-1 text-xl font-mono font-bold ${
-              status.chaosSafetyRate === 100 ? "text-emerald-400" : "text-amber-400"
+              currentStatus.chaosSafetyRate === 100 ? "text-emerald-400" : "text-amber-400"
             }`}
             data-testid="metric-chaos-safety"
           >
-            {status.chaosSafetyRate}%
+            {currentStatus.chaosSafetyRate}%
           </span>
         </div>
       </div>

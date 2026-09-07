@@ -202,42 +202,51 @@ html, body {
 /* Grid layout */
 .console-grid {
   display: grid;
-  grid-template-columns: 1.6fr 1fr;
-  gap: 20px;
+  grid-template-columns: 1.35fr 1fr;
+  gap: 16px;
   flex: 1;
+  margin-bottom: 24px;
 }
 
 .console-sidebar {
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 12px;
 }
 
-/* Empty transcript state */
+/* Transcript Card & Empty state */
+.transcript-card {
+  min-height: 420px;
+  max-height: 55vh;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+}
+
 .transcript-empty-state {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 64px 24px;
+  padding: 40px 20px;
   text-align: center;
   border: 1px dashed var(--color-border);
   border-radius: var(--radius-lg);
   background-color: var(--color-surface-secondary);
-  height: 100%;
-  min-height: 380px;
+  min-height: 320px;
+  flex: 1;
 }
 
 .transcript-empty-icon {
-  width: 52px;
-  height: 52px;
+  width: 48px;
+  height: 48px;
   border-radius: var(--radius-full);
   background-color: var(--color-surface-tertiary);
   display: flex;
   align-items: center;
   justify-content: center;
-  color: var(--color-text-muted);
-  margin-bottom: 16px;
+  color: var(--color-accent);
+  margin-bottom: 12px;
 }
 
 .transcript-empty-title {
@@ -250,7 +259,7 @@ html, body {
 .transcript-empty-desc {
   font-size: 13px;
   color: var(--color-text-secondary);
-  max-width: 380px;
+  max-width: 460px;
   line-height: 1.5;
 }
 
@@ -261,8 +270,103 @@ html, body {
   gap: 12px;
   flex: 1;
   overflow-y: auto;
-  padding-right: 4px;
-  max-height: 480px;
+  padding-right: 8px;
+  min-height: 320px;
+  max-height: calc(55vh - 70px);
+}
+
+/* Voice Telemetry 3-Card Row */
+.voice-telemetry-row {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+  width: 100%;
+}
+
+@media (max-width: 1024px) {
+  .voice-telemetry-row {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 640px) {
+  .voice-telemetry-row {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Subtle Vertical Narrative Flow Divider */
+.section-flow-divider {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  margin: 0;
+  padding: 2px 0;
+  opacity: 0.85;
+  user-select: none;
+  height: auto;
+  min-height: 0;
+  position: relative;
+  isolation: isolate;
+}
+
+/* Structural containment & clean normal flow for evidence panels */
+.generation-timeline-panel {
+  height: auto;
+  min-height: 0;
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+  box-sizing: border-box;
+}
+
+.generation-timeline-list {
+  height: auto;
+  min-height: 0;
+  position: relative;
+}
+
+.system-status-panel {
+  height: auto;
+  min-height: 0;
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+  box-sizing: border-box;
+}
+
+.flow-line {
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(56, 189, 248, 0.25), transparent);
+}
+
+.flow-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 14px;
+  border-radius: var(--radius-full);
+  background-color: rgba(15, 23, 42, 0.7);
+  border: 1px solid rgba(56, 189, 248, 0.2);
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: rgb(148, 163, 184);
+}
+
+.flow-arrow {
+  color: rgb(56, 189, 248);
+  font-size: 13px;
+  line-height: 1;
+}
+
+.flow-label {
+  color: rgb(203, 213, 225);
+  font-family: var(--font-mono);
+  font-size: 10.5px;
 }
 
 .turn-card {
@@ -1181,10 +1285,12 @@ html, body {
    Step 9: Unified Evidence Dashboard Styles
    ==================================================== */
 .evidence-dashboard-container {
-  margin-top: 28px;
+  margin-top: 24px;
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 36px;
+  position: relative;
+  width: 100%;
 }
 
 .evidence-dashboard-header {
@@ -1558,6 +1664,12 @@ html, body {
 /* 5. Chronological Event Log */
 .event-log-card {
   padding: 16px 20px;
+  height: auto;
+  min-height: 0;
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+  box-sizing: border-box;
 }
 
 .event-log-header {

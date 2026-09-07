@@ -41,6 +41,7 @@ export class GenerationFence {
     const newGen = this.currentGeneration;
 
     measurementPipeline.startGeneration(newGen);
+    measurementPipeline.recordGenerationActivated(newGen);
 
     if (previous > 0) {
       generationAudit.record(
@@ -181,4 +182,21 @@ export class GenerationFence {
   }
 }
 
-export const generationFence = new GenerationFence();
+// Canonical Singleton Anchor on globalThis across all client bundles and HMR
+const globalForFence = globalThis as unknown as {
+  __ECHOFENCE_GENERATION_FENCE__?: GenerationFence;
+};
+
+export const generationFence: GenerationFence =
+  globalForFence.__ECHOFENCE_GENERATION_FENCE__ ?? new GenerationFence();
+
+if (!globalForFence.__ECHOFENCE_GENERATION_FENCE__) {
+  globalForFence.__ECHOFENCE_GENERATION_FENCE__ = generationFence;
+}
+
+if (typeof window !== "undefined") {
+  console.log("[generation-fence-singleton-ref]", {
+    pipelineInstanceId: measurementPipeline.instanceId,
+  });
+}
+

@@ -99,6 +99,26 @@ export class GenerationAwareAudio {
   }
 
   /**
+   * Principled browser audio unlock method.
+   * Invoked synchronously within trusted user gesture handlers (Click to Talk, Demo Controls)
+   * to initialize and resume the Web Audio AudioContext so that subsequent async speech synthesis
+   * can play without hitting Chrome's transient user activation expiry.
+   */
+  public async ensureAudioUnlocked(): Promise<boolean> {
+    const ctx = this.getOrCreateAudioContext();
+    if (!ctx) return false;
+    if (ctx.state === "suspended") {
+      try {
+        await ctx.resume();
+      } catch (err) {
+        console.warn("[generation-aware-audio] AudioContext resume failed:", err);
+        return false;
+      }
+    }
+    return ctx.state === "running";
+  }
+
+  /**
    * Primary Playback Method:
    * Consumes ONLY AuthorizedSynthesisResult from Step 12.
    * Enforces all 3 pre-playback generation checkpoints.

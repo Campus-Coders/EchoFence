@@ -10,7 +10,9 @@
     "test:e2e": "playwright test",
     "test:step16": "node test-step16.mjs",
     "test:step17": "node test-step17.mjs",
-    "test:step18": "node test-step18.mjs"
+    "test:step18": "node test-step18.mjs",
+    "test:step19": "node test-step19.mjs",
+    "test:all": "node run-all-tests.mjs"
   },
   "dependencies": {
     "lucide-react": "^0.475.0",

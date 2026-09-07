@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import { getSpokenProviderStatus } from "@/agent/rime";
+import { rimeProviderAdapter } from "@/lib/rime-provider";
+import type { SafeProviderStatus } from "@/types/provider";
 
 /**
  * GET /api/voice/status
@@ -8,7 +10,23 @@ import { getSpokenProviderStatus } from "@/agent/rime";
  */
 export async function GET(): Promise<NextResponse> {
   try {
-    const status = getSpokenProviderStatus();
+    const baseStatus = getSpokenProviderStatus();
+    const diag = rimeProviderAdapter.getDiagnostics();
+    const effectiveMode = rimeProviderAdapter.getMode();
+
+    const status: SafeProviderStatus = {
+      ...baseStatus,
+      configured: baseStatus.configured,
+      provider: "Rime",
+      mode: effectiveMode === "real" ? "real" : "fallback",
+      selectedModel: baseStatus.selectedModel || "mist",
+      selectedVoice: baseStatus.selectedVoice || "amber",
+      selectedLanguage: baseStatus.selectedLanguage || "eng",
+      lastProviderStatus: diag.lastProviderStatus,
+      lastProviderStatusCode: diag.lastProviderStatusCode,
+      lastProviderError: diag.lastProviderError,
+      lastAudioSource: diag.lastAudioSource,
+    };
 
     return NextResponse.json({
       success: true,

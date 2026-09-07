@@ -87,7 +87,7 @@ export function IntegrityScoreboard({
           </thead>
           <tbody>
             {/* Row 1: Generation Ownership */}
-            <tr className="scoreboard-row">
+            <tr className="scoreboard-row" data-testid="scoreboard-row-ownership">
               <td className="font-semibold text-primary">Generation Ownership</td>
               <td className="text-secondary">Only active generation may commit output</td>
               <td className="font-mono text-xs text-muted">
@@ -99,7 +99,7 @@ export function IntegrityScoreboard({
             </tr>
 
             {/* Row 2: Transcript Integrity */}
-            <tr className="scoreboard-row">
+            <tr className="scoreboard-row" data-testid="scoreboard-row-transcript">
               <td className="font-semibold text-primary">Transcript Integrity</td>
               <td className="text-secondary">No stale assistant message enters transcript</td>
               <td className="font-mono text-xs">
@@ -114,7 +114,7 @@ export function IntegrityScoreboard({
             </tr>
 
             {/* Row 3: Audio Integrity */}
-            <tr className="scoreboard-row">
+            <tr className="scoreboard-row" data-testid="scoreboard-row-audio">
               <td className="font-semibold text-primary">Audio Integrity</td>
               <td className="text-secondary">Stale generations cannot start or restart audio</td>
               <td className="font-mono text-xs">
@@ -129,7 +129,7 @@ export function IntegrityScoreboard({
             </tr>
 
             {/* Row 4: Stale Result Protection */}
-            <tr className="scoreboard-row">
+            <tr className="scoreboard-row" data-testid="scoreboard-row-stale">
               <td className="font-semibold text-primary">Stale Result Protection</td>
               <td className="text-secondary">All late async results reaching guard are blocked</td>
               <td className="font-mono text-xs text-muted">
@@ -145,7 +145,7 @@ export function IntegrityScoreboard({
             </tr>
 
             {/* Row 5: Generation Fence Status */}
-            <tr className="scoreboard-row">
+            <tr className="scoreboard-row" data-testid="scoreboard-row-fence">
               <td className="font-semibold text-primary">Generation Fence</td>
               <td className="text-secondary">Monotonic boundary active and validating calls</td>
               <td className="font-mono text-xs text-muted">

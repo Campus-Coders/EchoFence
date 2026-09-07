@@ -24,6 +24,12 @@ export function MeasurementDashboard({
   );
 
   useEffect(() => {
+    if (typeof window !== "undefined") {
+      console.log("[MeasurementDashboard-singleton-ref]", {
+        pipelineInstanceId: measurementPipeline.instanceId,
+      });
+    }
+
     if (customSnapshot) {
       setSnapshot(customSnapshot);
       return;
@@ -33,23 +39,8 @@ export function MeasurementDashboard({
       setSnapshot(newSnapshot);
     });
 
-    const interval = setInterval(async () => {
-      try {
-        const res = await fetch("/api/evidence/metrics");
-        if (res.ok) {
-          const json = await res.json();
-          if (json.success && json.data) {
-            setSnapshot(json.data);
-          }
-        }
-      } catch {
-        // Fall back to local subscription
-      }
-    }, 1000);
-
     return () => {
       unsubscribe();
-      clearInterval(interval);
     };
   }, [customSnapshot]);
 
@@ -90,25 +81,25 @@ export function MeasurementDashboard({
           <div className="category-metrics">
             <div className="metric-row">
               <span className="metric-label">Detection Latency</span>
-              <span className="metric-value metric-mono">
+              <span className="metric-value metric-mono" data-testid="q-metric-detection-latency">
                 {formatMs(interruption.detectionLatencyMs)}
               </span>
             </div>
             <div className="metric-row">
               <span className="metric-label">Abort Signal Latency</span>
-              <span className="metric-value metric-mono">
+              <span className="metric-value metric-mono" data-testid="q-metric-abort-latency">
                 {formatMs(interruption.abortLatencyMs)}
               </span>
             </div>
             <div className="metric-row">
               <span className="metric-label">Audio Stop Latency</span>
-              <span className="metric-value metric-mono">
+              <span className="metric-value metric-mono" data-testid="q-metric-stop-latency">
                 {formatMs(interruption.audioStopLatencyMs)}
               </span>
             </div>
             <div className="metric-row metric-row-highlight">
               <span className="metric-label">Interruption → Silence</span>
-              <span className="metric-value metric-mono">
+              <span className="metric-value metric-mono" data-testid="q-metric-silence-total">
                 {formatMs(interruption.totalInterruptionToSilenceMs)}
               </span>
             </div>
@@ -124,19 +115,19 @@ export function MeasurementDashboard({
           <div className="category-metrics">
             <div className="metric-row">
               <span className="metric-label">Generation Switch</span>
-              <span className="metric-value metric-mono">
+              <span className="metric-value metric-mono" data-testid="q-metric-generation-switch">
                 {formatMs(recovery.generationSwitchTimeMs)}
               </span>
             </div>
             <div className="metric-row metric-row-highlight">
               <span className="metric-label">Full Turn Recovery</span>
-              <span className="metric-value metric-mono">
+              <span className="metric-value metric-mono" data-testid="q-metric-recovery-time">
                 {formatMs(recovery.recoveryTimeMs)}
               </span>
             </div>
             <div className="metric-row">
               <span className="metric-label">Interruption Count</span>
-              <span className="metric-value metric-mono">
+              <span className="metric-value metric-mono" data-testid="q-metric-interruption-count">
                 {interruption.count}
               </span>
             </div>
@@ -152,19 +143,19 @@ export function MeasurementDashboard({
           <div className="category-metrics">
             <div className="metric-row">
               <span className="metric-label">Stale Attempts</span>
-              <span className="metric-value metric-mono">
+              <span className="metric-value metric-mono" data-testid="q-metric-stale-attempts">
                 {staleResults.attempted}
               </span>
             </div>
             <div className="metric-row">
               <span className="metric-label">Stale Results Blocked</span>
-              <span className="metric-value metric-mono text-error">
+              <span className="metric-value metric-mono text-error" data-testid="q-metric-stale-blocked">
                 {staleResults.blocked}
               </span>
             </div>
             <div className="metric-row metric-row-highlight">
               <span className="metric-label">Protection Rate</span>
-              <span className="metric-value metric-mono text-success">
+              <span className="metric-value metric-mono text-success" data-testid="q-metric-protection-rate">
                 {staleResults.protectionRate}%
               </span>
             </div>
@@ -180,25 +171,25 @@ export function MeasurementDashboard({
           <div className="category-metrics">
             <div className="metric-row">
               <span className="metric-label">Transcript Corruption</span>
-              <span className={`metric-value metric-mono ${transcript.corruptionCount === 0 ? "text-success" : "text-error"}`}>
+              <span className={`metric-value metric-mono ${transcript.corruptionCount === 0 ? "text-success" : "text-error"}`} data-testid="q-metric-transcript-corruption">
                 {transcript.corruptionCount}
               </span>
             </div>
             <div className="metric-row">
               <span className="metric-label">Audio Resurrections</span>
-              <span className={`metric-value metric-mono ${audio.resurrectionCount === 0 ? "text-success" : "text-error"}`}>
+              <span className={`metric-value metric-mono ${audio.resurrectionCount === 0 ? "text-success" : "text-error"}`} data-testid="q-metric-audio-resurrections">
                 {audio.resurrectionCount}
               </span>
             </div>
             <div className="metric-row">
               <span className="metric-label">Stale Audio Blocked</span>
-              <span className="metric-value metric-mono">
+              <span className="metric-value metric-mono" data-testid="q-metric-stale-audio-blocked">
                 {audio.staleAudioStartsBlocked}
               </span>
             </div>
             <div className="metric-row">
               <span className="metric-label">Fence Guard Status</span>
-              <span className={`status-pill ${fence.active ? "status-pill-ready" : "status-pill-error"}`}>
+              <span className={`status-pill ${fence.active ? "status-pill-ready" : "status-pill-error"}`} data-testid="q-metric-fence-status">
                 {fence.active ? "ACTIVE" : "INACTIVE"}
               </span>
             </div>
@@ -214,25 +205,25 @@ export function MeasurementDashboard({
           <div className="category-metrics">
             <div className="metric-row">
               <span className="metric-label">Active Generation ID</span>
-              <span className="metric-value metric-mono">
+              <span className="metric-value metric-mono" data-testid="q-metric-active-generation">
                 {generation.activeGeneration !== null ? `#${generation.activeGeneration}` : "—"}
               </span>
             </div>
             <div className="metric-row">
               <span className="metric-label">Generations Started</span>
-              <span className="metric-value metric-mono">
+              <span className="metric-value metric-mono" data-testid="q-metric-generations-started">
                 {generation.generationsStarted}
               </span>
             </div>
             <div className="metric-row">
               <span className="metric-label">Generations Interrupted</span>
-              <span className="metric-value metric-mono text-warning">
+              <span className="metric-value metric-mono text-warning" data-testid="q-metric-generations-interrupted">
                 {generation.generationsInterrupted}
               </span>
             </div>
             <div className="metric-row">
               <span className="metric-label">Generations Completed</span>
-              <span className="metric-value metric-mono text-success">
+              <span className="metric-value metric-mono text-success" data-testid="q-metric-generations-completed">
                 {generation.generationsCompleted}
               </span>
             </div>

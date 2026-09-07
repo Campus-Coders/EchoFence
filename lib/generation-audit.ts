@@ -107,4 +107,15 @@ export class GenerationAuditLog {
   }
 }
 
-export const generationAudit = new GenerationAuditLog();
+// Canonical Singleton Anchor on globalThis
+const globalForAudit = globalThis as unknown as {
+  __ECHOFENCE_GENERATION_AUDIT__?: GenerationAuditLog;
+};
+
+export const generationAudit: GenerationAuditLog =
+  globalForAudit.__ECHOFENCE_GENERATION_AUDIT__ ?? new GenerationAuditLog();
+
+if (!globalForAudit.__ECHOFENCE_GENERATION_AUDIT__) {
+  globalForAudit.__ECHOFENCE_GENERATION_AUDIT__ = generationAudit;
+}
+

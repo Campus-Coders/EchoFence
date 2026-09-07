@@ -40,6 +40,7 @@ export class RimeSpeechProvider implements SpeechProvider {
     const speaker = request.voice || config.voice;
     const model = request.model || config.model;
 
+    const reqLang = request.language ? (request.language.toLowerCase() === "en" ? "eng" : request.language) : config.language;
     const payload = {
       speaker,
       text: request.text,
@@ -47,7 +48,7 @@ export class RimeSpeechProvider implements SpeechProvider {
       samplingRate: 22050,
       speedAlpha: 1.0,
       audioFormat: config.audioFormat,
-      lang: request.language || config.language,
+      lang: reqLang,
     };
 
     const startTime = Date.now();
@@ -73,11 +74,15 @@ export class RimeSpeechProvider implements SpeechProvider {
       const audioBuffer = await response.arrayBuffer();
       const durationMs = Date.now() - startTime;
 
+      const rawContentType = response.headers.get("content-type") || "";
+      const contentType =
+        rawContentType === "audio/mp3" || rawContentType === "audio/mpeg" || config.audioFormat === "mp3"
+          ? "audio/mpeg"
+          : rawContentType || (config.audioFormat === "pcm" ? "audio/wav" : "audio/mpeg");
+
       return {
         audioBuffer,
-        contentType:
-          response.headers.get("content-type") ||
-          (config.audioFormat === "pcm" ? "audio/pcm" : "audio/mpeg"),
+        contentType,
         provider: this.name,
         model,
         voice: speaker,

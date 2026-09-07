@@ -22,10 +22,10 @@ Living document. Update after every component is built.
 
 | Component | Path | Purpose | Key Patterns / Tokens |
 |---|---|---|---|
-| VoiceConsole | `components/voice/VoiceConsole.tsx` | Voice console coordinator managing state machine, turns, and audio | Client component, `VoiceStateMachine` integration, auto generation tracking |
-| Transcript | `components/voice/Transcript.tsx` | Conversation turn history with generation tags | `.transcript-list`, `.turn-card`, `.turn-role-pill`, empty ready state |
+| VoiceConsole | `components/voice/VoiceConsole.tsx` | Voice console coordinator with cohesive single-column vertical storytelling layout | Client component, `VoiceStateMachine` integration, auto generation tracking, unified 11-section layout |
+| Transcript | `components/voice/Transcript.tsx` | Expanded conversation turn history with live Rime badge and auto-scroll | `.transcript-card` (min 420px, max 55vh), `.transcript-list`, auto-scroll, empty ready state |
 | AudioState | `components/voice/AudioState.tsx` | Dynamic voice state machine visualizer | Token-mapped chips (`.state-chip-active-listening`, etc.), active indicator |
-| VoiceControls | `components/voice/VoiceControls.tsx` | Interactive Click-to-Talk, quick demo prompts, barge-in trigger, realtime VAD monitor indicator, and Test 4s Delayed Race fixture | `.btn-talk`, `.btn-quick-prompt`, `.btn-quick-prompt-danger`, `.status-pill-active`, realtime VAD barge-in detection, Web Speech detection, deterministic 4s delayed race trigger |
+| VoiceControls | `components/voice/VoiceControls.tsx` | Centered Click-to-Talk, quick prompts, integrated demo controls deck, and race fixtures | `.btn-talk`, `.btn-quick-prompt`, `.demo-controls-bar`, unified deck, VAD status |
 | ProviderBadge | `components/voice/ProviderBadge.tsx` | Active speech provider status & model display (dynamic `/api/voice/status` telemetry) | `.provider-box`, `.provider-row`, safe observable config, client polling |
 | EvidencePanel | `components/evidence/EvidencePanel.tsx` | Real-time generation fence & interruption telemetry, late tool execution tracking, and audit feed | `.console-card`, `.status-pill-error`, `.evidence-feed-section`, `.evidence-feed-item-blocked`, monospace timestamps, tool event badges |
 | MetricsCards | `components/evidence/MetricsCards.tsx` | Monotonic generation ID, interruptions counter, audio stop latency, recovery time, and stale-blocked counters | `.metrics-grid`, `.metric-card`, monospace numbers, live telemetry binding |

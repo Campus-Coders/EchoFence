@@ -16,20 +16,22 @@ const tests = [
   'test-step16.mjs',
   'test-step17.mjs',
   'test-step18.mjs',
+  'test-step19.mjs',
 ];
 
 let totalPassed = 0;
 console.log('==================================================');
-console.log(' RUNNING FULL REGRESSION SUITE (STEPS 4-18)');
+console.log(' RUNNING FULL REGRESSION SUITE (STEPS 4-19)');
 console.log('==================================================');
 
 for (const t of tests) {
   process.stdout.write(`Running ${t.padEnd(16)} `);
   try {
+    const timeout = t.includes("step16") || t.includes("step17") ? 360000 : 180000;
     const out = execSync(`"${process.execPath}" ${t}`, {
       stdio: 'pipe',
       maxBuffer: 50 * 1024 * 1024,
-      timeout: 180000,
+      timeout,
     }).toString();
     const passedMatch = out.match(/SUMMARY:\s*.*?(\d+)\s+PASSED/is) || out.match(/(\d+)\s+PASSED/i);
     const count = passedMatch ? parseInt(passedMatch[1], 10) : 0;

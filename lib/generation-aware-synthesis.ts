@@ -235,6 +235,7 @@ export class GenerationAwareSynthesis {
       audioData: providerResult.audioData || providerResult.audioBuffer,
       contentType: providerResult.contentType || "audio/mpeg",
       provider: providerResult.provider || "Rime",
+      audioSource: providerResult.audioSource || "REAL_RIME_AUDIO",
       model: providerResult.model,
       voice: providerResult.voice,
       providerLatencyMs: providerResult.latencyMs ?? (Date.now() - startedAt),

@@ -8,18 +8,18 @@ import type { AudioStopResult } from "@/types/interrupt";
 // Global reference for active audio playback
 let currentActiveAudio: HTMLAudioElement | null = null;
 let activeAudioGenerationId: number | null = null;
+let currentObjectUrl: string | null = null;
 
 // Simulated playback handle for headless test environments
 let simulatedPlaybackTimer: ReturnType<typeof setTimeout> | null = null;
 
 /**
- * Plays base64 audio data using browser native Audio.
+ * Plays a binary Audio Blob using browser native Audio.
+ * Uses URL.createObjectURL and explicitly revokes it when finished, errored, or interrupted.
  * Associates playback with a specific generation ID.
- * Resolves when playback completes normally, rejects if interrupted or errored.
  */
-export function playBase64Audio(
-  base64Audio: string,
-  contentType = "audio/mpeg",
+export function playAudioBlob(
+  blob: Blob,
   generationId?: number
 ): Promise<void> {
   return new Promise((resolve, reject) => {
@@ -29,11 +29,27 @@ export function playBase64Audio(
 
       activeAudioGenerationId = typeof generationId === "number" ? generationId : null;
 
-      const audioSrc = `data:${contentType};base64,${base64Audio}`;
-      const audio = new Audio(audioSrc);
+      if (typeof window === "undefined" || typeof URL === "undefined" || typeof Audio === "undefined") {
+        resolve();
+        return;
+      }
+
+      const url = URL.createObjectURL(blob);
+      currentObjectUrl = url;
+
+      const audio = new Audio();
+      audio.src = url;
       currentActiveAudio = audio;
 
       const cleanup = () => {
+        if (currentObjectUrl) {
+          try {
+            URL.revokeObjectURL(currentObjectUrl);
+          } catch {
+            // Ignored
+          }
+          currentObjectUrl = null;
+        }
         if (currentActiveAudio === audio) {
           currentActiveAudio = null;
           activeAudioGenerationId = null;
@@ -46,20 +62,36 @@ export function playBase64Audio(
       };
 
       audio.onerror = (err) => {
+        const code = audio.error?.code;
+        const msg = audio.error?.message;
         cleanup();
-        console.warn("[browser-audio] Audio element playback error:", err);
-        reject(new Error("Audio playback failed"));
+        console.warn(`[browser-audio] Audio element playback error (code=${code}, msg=${msg}):`, err);
+        reject(new Error(`Audio playback failed (code=${code}, msg=${msg})`));
       };
 
       const playPromise = audio.play();
       if (playPromise !== undefined) {
-        playPromise.catch((err) => {
-          cleanup();
-          console.warn("[browser-audio] Audio play() promise rejected:", err);
-          resolve(); // Resolve rather than throwing unhandled rejection (e.g. autoplay policy)
-        });
+        playPromise
+          .then(() => {
+            console.log(
+              `[browser-audio] Playback started successfully: MIME=${blob.type}, size=${blob.size} bytes, genId=${generationId}`
+            );
+          })
+          .catch((err) => {
+            cleanup();
+            console.warn("[browser-audio] Audio play() promise rejected:", err);
+            resolve(); // Resolve rather than throwing unhandled rejection (e.g. autoplay policy)
+          });
       }
     } catch (err) {
+      if (currentObjectUrl) {
+        try {
+          URL.revokeObjectURL(currentObjectUrl);
+        } catch {
+          // Ignored
+        }
+        currentObjectUrl = null;
+      }
       currentActiveAudio = null;
       activeAudioGenerationId = null;
       console.warn("[browser-audio] Unable to initialize audio element:", err);
@@ -69,13 +101,64 @@ export function playBase64Audio(
 }
 
 /**
+ * Plays raw ArrayBuffer audio data by wrapping it into a typed Blob and Object URL.
+ */
+export function playAudioBuffer(
+  buffer: ArrayBuffer,
+  contentType = "audio/mpeg",
+  generationId?: number
+): Promise<void> {
+  const blob = new Blob([buffer], { type: contentType });
+  return playAudioBlob(blob, generationId);
+}
+
+/**
+ * Plays base64 audio data using browser native Audio backed by Blob and Object URL.
+ * Eliminates data-URI length limits and mime-type rejection.
+ * Associates playback with a specific generation ID.
+ * Resolves when playback completes normally, rejects if interrupted or errored.
+ */
+export function playBase64Audio(
+  base64Audio: string,
+  contentType = "audio/mpeg",
+  generationId?: number
+): Promise<void> {
+  try {
+    const binaryString =
+      typeof atob !== "undefined"
+        ? atob(base64Audio)
+        : Buffer.from(base64Audio, "base64").toString("binary");
+    const len = binaryString.length;
+    const bytes = new Uint8Array(len);
+    for (let i = 0; i < len; i++) {
+      bytes[i] = binaryString.charCodeAt(i);
+    }
+    const blob = new Blob([bytes], { type: contentType });
+    return playAudioBlob(blob, generationId);
+  } catch (err) {
+    console.warn("[browser-audio] Failed to decode base64 audio:", err);
+    return Promise.resolve();
+  }
+}
+
+/**
  * Stops any actively playing browser audio immediately.
- * Pauses audio, resets position, removes event handlers, and measures stop latency.
+ * Pauses audio, resets position, removes event handlers, revokes Object URLs, and measures stop latency.
  */
 export function stopActiveAudio(): AudioStopResult {
   const startTimestamp = typeof performance !== "undefined" ? performance.now() : Date.now();
   let stopped = false;
   let playbackPositionSeconds = 0;
+
+  // Revoke active Object URL to prevent memory leaks
+  if (currentObjectUrl) {
+    try {
+      URL.revokeObjectURL(currentObjectUrl);
+    } catch {
+      // Ignored
+    }
+    currentObjectUrl = null;
+  }
 
   // Stop simulated audio if active
   if (simulatedPlaybackTimer) {
@@ -94,6 +177,7 @@ export function stopActiveAudio(): AudioStopResult {
 
       currentActiveAudio.pause();
       currentActiveAudio.currentTime = 0;
+      currentActiveAudio.src = "";
       stopped = true;
     } catch (err) {
       console.warn("[browser-audio] Error while stopping audio element:", err);
@@ -218,6 +302,9 @@ export function startNativeSpeechRecognition(
 
     recognition.onerror = (event: any) => {
       const errorMsg = event.error || "Speech recognition error";
+      if (errorMsg === "aborted") {
+        return;
+      }
       console.warn("[browser-speech] Recognition error:", errorMsg);
       callbacks.onError(errorMsg);
     };

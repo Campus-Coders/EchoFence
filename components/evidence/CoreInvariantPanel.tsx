@@ -27,6 +27,9 @@ export function CoreInvariantPanel({ invariants }: CoreInvariantPanelProps): Rea
               <h2 className="text-lg sm:text-xl font-black tracking-tight text-slate-100">
                 CHAOS MAY BREAK EXECUTION. CHAOS MUST NOT BREAK OWNERSHIP.
               </h2>
+              <p className="text-xs text-cyan-300/80 font-mono mt-1">
+                Central Rule: Only the currently authoritative generation may affect transcript, audio, or voice state.
+              </p>
             </div>
           </div>
           <div className="hidden sm:flex flex-col items-end">

@@ -29,27 +29,45 @@ export interface RimeProviderOptions {
  * - makes authority decisions for stale or current generations
  */
 export class RimeProviderAdapter {
-  private mode: "real" | "mock";
+  private modeOverride?: "real" | "mock";
   private defaultTimeoutMs: number;
   private mockLatencyMs: number;
   private mockFailureCode?: VoiceProviderErrorCode;
+  private lastProviderStatus: string = "idle";
+  private lastProviderStatusCode: number | null = null;
+  private lastProviderError: string | null = null;
+  private lastAudioSource: "REAL_RIME_AUDIO" | "FALLBACK_SYNTHETIC_AUDIO" | null = null;
 
   constructor(options?: RimeProviderOptions) {
-    const envMode = process.env.RIME_PROVIDER_MODE?.toLowerCase().trim();
-    this.mode =
-      options?.mode ??
-      (envMode === "mock" ? "mock" : envMode === "real" ? "real" : "mock");
+    if (options?.mode) {
+      this.modeOverride = options.mode;
+    }
     this.defaultTimeoutMs = options?.defaultTimeoutMs ?? 8000;
     this.mockLatencyMs = options?.mockLatencyMs ?? 25;
     this.mockFailureCode = options?.mockFailureCode;
   }
 
   public getMode(): "real" | "mock" {
-    return this.mode;
+    if (this.modeOverride) {
+      return this.modeOverride;
+    }
+    const envMode = process.env.RIME_PROVIDER_MODE?.toLowerCase().trim();
+    if (envMode === "mock") return "mock";
+    if (envMode === "real") return "real";
+    return getRimeConfig().isConfigured ? "real" : "mock";
   }
 
-  public setMode(mode: "real" | "mock"): void {
-    this.mode = mode;
+  public setMode(mode?: "real" | "mock"): void {
+    this.modeOverride = mode;
+  }
+
+  public getDiagnostics() {
+    return {
+      lastProviderStatus: this.lastProviderStatus,
+      lastProviderStatusCode: this.lastProviderStatusCode,
+      lastProviderError: this.lastProviderError,
+      lastAudioSource: this.lastAudioSource,
+    };
   }
 
   public setMockFailure(code?: VoiceProviderErrorCode): void {
@@ -115,7 +133,7 @@ export class RimeProviderAdapter {
     const timeoutMs = options?.timeoutMs ?? this.defaultTimeoutMs;
 
     // 2. Dispatch depending on mode
-    if (this.mode === "mock") {
+    if (this.getMode() === "mock") {
       return this.synthesizeMock(request, requestId, startedAt, timeoutMs);
     }
 
@@ -193,12 +211,25 @@ export class RimeProviderAdapter {
 
     const workPromise = new Promise<VoiceProviderResult>((resolve) => {
       const timer = setTimeout(() => {
-        // Generate deterministic synthetic audio buffer (WAV header or test MP3 frames)
         const mockBuffer = this.createSyntheticAudioBuffer(request.text);
         const completedAt = Date.now();
         const latencyMs = completedAt - startedAt;
 
         this.recordAudit(generationId, "provider_request_completed", requestId);
+
+        const contentType = "audio/wav";
+        const bytes = new Uint8Array(mockBuffer);
+        const firstBytesHex = Array.from(bytes.slice(0, 8))
+          .map((b) => "0x" + b.toString(16).padStart(2, "0"))
+          .join(" ");
+
+        this.lastProviderStatus = "mock_active";
+        this.lastProviderStatusCode = 200;
+        this.lastAudioSource = "FALLBACK_SYNTHETIC_AUDIO";
+
+        console.log(
+          `[rime-provider] Mock/Fallback synthesis completed [${requestId}]: HTTP 200, Content-Type: ${contentType}, Content-Length: ${mockBuffer.byteLength}, First bytes: [${firstBytesHex}], Total: ${mockBuffer.byteLength} bytes`
+        );
 
         resolve({
           generationId,
@@ -207,7 +238,8 @@ export class RimeProviderAdapter {
           status: "completed",
           audioBuffer: mockBuffer,
           audioData: mockBuffer,
-          contentType: "audio/mpeg",
+          contentType,
+          audioSource: "FALLBACK_SYNTHETIC_AUDIO",
           provider: "Rime (Mock)",
           model: request.model || "mist",
           voice: request.voice || "amber",
@@ -244,6 +276,11 @@ export class RimeProviderAdapter {
 
     // Check configuration
     if (!config.isConfigured || !config.apiKey) {
+      this.lastProviderStatus = "not_configured";
+      this.lastProviderStatusCode = null;
+      this.lastProviderError = "Rime API key is not configured on the server";
+      this.lastAudioSource = null;
+
       return this.createFailureResult(
         generationId,
         requestId,
@@ -255,7 +292,8 @@ export class RimeProviderAdapter {
 
     const speaker = request.voice || config.voice;
     const model = request.model || config.model;
-    const language = request.language || config.language;
+    const rawReqLang = request.language || config.language;
+    const language = rawReqLang.toLowerCase() === "en" ? "eng" : rawReqLang;
 
     const payload = {
       speaker,
@@ -300,6 +338,8 @@ export class RimeProviderAdapter {
     }
 
     try {
+      this.lastProviderStatus = "fetching";
+
       const response = await fetch(config.endpoint, {
         method: "POST",
         headers: {
@@ -321,6 +361,15 @@ export class RimeProviderAdapter {
         const errorText = await response.text().catch(() => "Unknown error");
         const safeError = errorText.slice(0, 120).replace(/Bearer\s+[A-Za-z0-9_.-]+/gi, "[REDACTED]");
 
+        this.lastProviderStatus = "failed";
+        this.lastProviderStatusCode = response.status;
+        this.lastProviderError = `Rime API responded with status ${response.status}: ${safeError}`;
+        this.lastAudioSource = null;
+
+        console.warn(
+          `[rime-provider] Real Rime API error response [${requestId}]: HTTP ${response.status} ${response.statusText}, Content-Type: ${response.headers.get("content-type")}, Error: ${safeError}`
+        );
+
         let errorCode: VoiceProviderErrorCode = "PROVIDER_ERROR";
         if (response.status === 401 || response.status === 403) {
           errorCode = "NOT_CONFIGURED";
@@ -340,6 +389,11 @@ export class RimeProviderAdapter {
       const audioBuffer = await response.arrayBuffer();
 
       if (!audioBuffer || audioBuffer.byteLength === 0) {
+        this.lastProviderStatus = "failed";
+        this.lastProviderStatusCode = response.status;
+        this.lastProviderError = "Received empty audio buffer from Rime API";
+        this.lastAudioSource = null;
+
         return this.createFailureResult(
           generationId,
           requestId,
@@ -352,6 +406,26 @@ export class RimeProviderAdapter {
       const completedAt = Date.now();
       const latencyMs = completedAt - startedAt;
 
+      const rawContentType = response.headers.get("content-type") || "";
+      const contentType =
+        rawContentType === "audio/mp3" || rawContentType === "audio/mpeg" || config.audioFormat === "mp3"
+          ? "audio/mpeg"
+          : rawContentType || (config.audioFormat === "pcm" ? "audio/wav" : "audio/mpeg");
+
+      const bytes = new Uint8Array(audioBuffer);
+      const firstBytesHex = Array.from(bytes.slice(0, 8))
+        .map((b) => "0x" + b.toString(16).padStart(2, "0"))
+        .join(" ");
+
+      this.lastProviderStatus = "connected";
+      this.lastProviderStatusCode = response.status;
+      this.lastProviderError = null;
+      this.lastAudioSource = "REAL_RIME_AUDIO";
+
+      console.log(
+        `[rime-provider] Real Rime synthesis completed [${requestId}]: HTTP ${response.status}, Content-Type: ${contentType}, Content-Length: ${audioBuffer.byteLength}, First bytes: [${firstBytesHex}], Total: ${audioBuffer.byteLength} bytes, Latency: ${latencyMs}ms`
+      );
+
       this.recordAudit(generationId, "provider_request_completed", requestId);
 
       return {
@@ -361,9 +435,8 @@ export class RimeProviderAdapter {
         status: "completed",
         audioBuffer,
         audioData: audioBuffer,
-        contentType:
-          response.headers.get("content-type") ||
-          (config.audioFormat === "pcm" ? "audio/pcm" : "audio/mpeg"),
+        contentType,
+        audioSource: "REAL_RIME_AUDIO",
         provider: "Rime",
         model,
         voice: speaker,
@@ -389,6 +462,11 @@ export class RimeProviderAdapter {
       }
 
       if (isTimedOut) {
+        this.lastProviderStatus = "timeout";
+        this.lastProviderStatusCode = 408;
+        this.lastProviderError = `Rime API request timed out after ${timeoutMs}ms`;
+        this.lastAudioSource = null;
+
         this.recordAudit(generationId, "provider_request_timeout", requestId);
         return {
           generationId,
@@ -410,6 +488,11 @@ export class RimeProviderAdapter {
       const errorCode: VoiceProviderErrorCode = isNetworkError
         ? "NETWORK_ERROR"
         : "UNKNOWN";
+
+      this.lastProviderStatus = "failed";
+      this.lastProviderStatusCode = null;
+      this.lastProviderError = `Rime transport failure: ${errMsg.slice(0, 100)}`;
+      this.lastAudioSource = null;
 
       return this.createFailureResult(
         generationId,
@@ -477,19 +560,51 @@ export class RimeProviderAdapter {
   }
 
   /**
-   * Generates a deterministic synthetic audio buffer for mock execution.
+   * Generates a guaranteed valid, standards-compliant WAV PCM audio buffer for mock and fallback execution.
+   * Begins with 'RIFF' (0x52, 0x49, 0x46, 0x46) and contains 'WAVE' (0x57, 0x41, 0x56, 0x45).
+   * Generates audible, gentle 440 Hz sine wave samples in standard 16-bit PCM (22050 Hz, mono).
+   * 100% playable natively by HTML5 Audio elements and Web Audio API across all browsers without codecs.
    */
-  private createSyntheticAudioBuffer(text: string): ArrayBuffer {
-    const headerBytes = [0xff, 0xfb, 0x90, 0x64]; // MP3 frame header
-    const payloadLength = Math.min(1024, Math.max(128, text.length * 16));
-    const buffer = new ArrayBuffer(headerBytes.length + payloadLength);
-    const view = new Uint8Array(buffer);
+  public createSyntheticAudioBuffer(text: string): ArrayBuffer {
+    const durationSeconds = Math.min(2.0, Math.max(0.3, text.length * 0.04));
+    const sampleRate = 22050;
+    const numChannels = 1;
+    const bitsPerSample = 16;
+    const numSamples = Math.floor(sampleRate * durationSeconds);
+    const blockAlign = (numChannels * bitsPerSample) / 8;
+    const byteRate = sampleRate * blockAlign;
+    const dataSize = numSamples * blockAlign;
+    const buffer = new ArrayBuffer(44 + dataSize);
+    const view = new DataView(buffer);
 
-    for (let i = 0; i < headerBytes.length; i++) {
-      view[i] = headerBytes[i] ?? 0;
-    }
-    for (let i = headerBytes.length; i < view.length; i++) {
-      view[i] = (i * 31 + text.charCodeAt(i % text.length)) % 256;
+    // 1. "RIFF" chunk descriptor
+    view.setUint32(0, 0x52494646, false); // "RIFF" in big-endian
+    view.setUint32(4, 36 + dataSize, true); // Total file size minus 8
+    view.setUint32(8, 0x57415645, false); // "WAVE" in big-endian
+
+    // 2. "fmt " subchunk
+    view.setUint32(12, 0x666d7420, false); // "fmt " in big-endian
+    view.setUint32(16, 16, true); // Subchunk1Size = 16 for PCM
+    view.setUint16(20, 1, true); // AudioFormat = 1 (linear PCM)
+    view.setUint16(22, numChannels, true); // NumChannels = 1 (mono)
+    view.setUint32(24, sampleRate, true); // SampleRate = 22050 Hz
+    view.setUint32(28, byteRate, true); // ByteRate = 44100
+    view.setUint16(32, blockAlign, true); // BlockAlign = 2
+    view.setUint16(34, bitsPerSample, true); // BitsPerSample = 16
+
+    // 3. "data" subchunk
+    view.setUint32(36, 0x64617461, false); // "data" in big-endian
+    view.setUint32(40, dataSize, true); // Subchunk2Size = numSamples * 2
+
+    // 4. 16-bit PCM audio samples (440 Hz soft sine wave with gentle envelope)
+    let offset = 44;
+    for (let i = 0; i < numSamples; i++) {
+      // Gentle attack and decay envelope to prevent pops
+      const envelope = Math.sin((Math.PI * i) / numSamples);
+      const sample = Math.sin((2 * Math.PI * 440 * i) / sampleRate) * 0.25 * envelope;
+      const intSample = Math.max(-32768, Math.min(32767, Math.floor(sample * 32767)));
+      view.setInt16(offset, intSample, true);
+      offset += 2;
     }
 
     return buffer;

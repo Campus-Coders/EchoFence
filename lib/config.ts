@@ -33,7 +33,8 @@ export function getRimeConfig(): RimeConfig {
     process.env.RIME_SPEAKER?.trim() ||
     "amber";
 
-  const language = process.env.RIME_LANGUAGE?.trim() || "en";
+  const rawLang = process.env.RIME_LANGUAGE?.trim() || "eng";
+  const language = rawLang.toLowerCase() === "en" ? "eng" : rawLang;
   const endpoint =
     process.env.RIME_ENDPOINT?.trim() || "https://users.rime.ai/v1/rime-tts";
   const audioFormat = process.env.RIME_AUDIO_FORMAT?.trim() || "mp3";
@@ -67,6 +68,7 @@ export function getSafeRimeStatus(): SafeProviderStatus {
     mode,
     selectedModel: config.model,
     selectedVoice: config.voice,
+    selectedLanguage: config.language,
     language: config.language,
     audioFormat: config.audioFormat,
     transport: config.transport,

@@ -13,13 +13,22 @@ export function EvidencePanel({
   title = "Evidence & Measurements",
   isInterrupted = false,
   activeGeneration,
+  previousGeneration,
   interruptions,
   staleResultsBlocked,
+  staleResultsSpoken,
+  finalSpokenGeneration,
   audioStopLatency,
   recoveryTime,
   recentEvents = [],
 }: EvidencePanelProps): React.JSX.Element {
-  const hasEvents = recentEvents.length > 0;
+  const [activeEvents, setActiveEvents] = React.useState<readonly GenerationAuditEvent[]>([]);
+
+  React.useEffect(() => {
+    setActiveEvents(recentEvents || []);
+  }, [recentEvents]);
+
+  const hasEvents = activeEvents.length > 0;
 
   return (
     <div className="console-card">
@@ -41,15 +50,18 @@ export function EvidencePanel({
             </span>
           )}
           <span className="status-pill">
-            {hasEvents ? `${recentEvents.length} Events` : "Evidence Feed"}
+            {hasEvents ? `${activeEvents.length} Events` : "Evidence Feed"}
           </span>
         </div>
       </div>
 
       <MetricsCards
         activeGeneration={activeGeneration}
+        previousGeneration={previousGeneration}
         interruptions={interruptions}
         staleResultsBlocked={staleResultsBlocked}
+        staleResultsSpoken={staleResultsSpoken}
+        finalSpokenGeneration={finalSpokenGeneration}
         audioStopLatency={audioStopLatency}
         recoveryTime={recoveryTime}
       />
@@ -61,7 +73,7 @@ export function EvidencePanel({
             Recent Fence Audit Events
           </div>
           <div className="evidence-feed-list">
-            {recentEvents.slice(0, 6).map((evt) => {
+            {activeEvents.slice(0, 6).map((evt) => {
               const isBlocked = evt.event.includes("blocked");
               const isLate = evt.event === "tool_completed_late";
               return (

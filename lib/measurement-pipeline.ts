@@ -31,10 +31,33 @@ import type {
 import type { ConversationTurn } from "@/types/conversation";
 
 export class MeasurementPipeline {
+  public readonly instanceId: string = `pipe_${Math.random().toString(36).slice(2, 8)}`;
   private sessionId: string = this.generateSessionId();
   private runStartedAt: number = Date.now();
   private history: MeasurementRun[] = [];
   private listeners: Set<MeasurementListener> = new Set();
+
+  private logMutation(method: string, generationId?: number): void {
+    const now = Date.now();
+    const snap = this.getSnapshot();
+    console.log(
+      `[measurement-pipeline-mutation] ${method} | genId: ${generationId ?? "N/A"} | ts: ${now} | instance: ${this.instanceId}`,
+      {
+        activeGen: snap.generation.activeGeneration,
+        started: snap.generation.generationsStarted,
+        completed: snap.generation.generationsCompleted,
+        interrupted: snap.generation.generationsInterrupted,
+        staleAttempted: snap.staleResults.attempted,
+        staleBlocked: snap.staleResults.blocked,
+        protectionRate: snap.staleResults.protectionRate,
+        detectionLatency: snap.interruption.detectionLatencyMs,
+        abortLatency: snap.interruption.abortLatencyMs,
+        stopLatency: snap.interruption.audioStopLatencyMs,
+        recoveryTime: snap.recovery.recoveryTimeMs,
+        genSwitchTime: snap.recovery.generationSwitchTimeMs,
+      }
+    );
+  }
 
   // Raw Timing Marks
   private lastInterruptDetectedAt: number | null = null;
@@ -146,6 +169,7 @@ export class MeasurementPipeline {
     this.generation.generationsStarted++;
     this.generation.activeGeneration = generationId;
     this.fence.active = true;
+    this.logMutation("startGeneration", generationId);
     this.notify();
   }
 
@@ -157,15 +181,18 @@ export class MeasurementPipeline {
         this.lastInterruptDetectedAt
       );
     }
+    this.logMutation("recordGenerationActivated", generationId);
     this.notify();
   }
 
   public recordGenerationInvalidated(_generationId: number): void {
+    this.logMutation("recordGenerationInvalidated", _generationId);
     this.notify();
   }
 
   public recordGenerationCompleted(_generationId: number): void {
     this.generation.generationsCompleted++;
+    this.logMutation("recordGenerationCompleted", _generationId);
     this.notify();
   }
 
@@ -189,6 +216,7 @@ export class MeasurementPipeline {
     } else {
       this.interruption.detectionLatencyMs = 0;
     }
+    this.logMutation("recordInterruptDetected", _generationId);
     this.notify();
   }
 
@@ -200,11 +228,13 @@ export class MeasurementPipeline {
         this.lastInterruptDetectedAt
       );
     }
+    this.logMutation("recordAbortIssued", _generationId);
     this.notify();
   }
 
   public recordAudioStopRequested(_generationId: number): void {
     this.lastAudioStopRequestedAt = performanceClock.now();
+    this.logMutation("recordAudioStopRequested", _generationId);
     this.notify();
   }
 
@@ -228,6 +258,7 @@ export class MeasurementPipeline {
         this.lastInterruptDetectedAt
       );
     }
+    this.logMutation("recordAudioStopped", _generationId);
     this.notify();
   }
 
@@ -237,6 +268,7 @@ export class MeasurementPipeline {
 
   public recordRecoveryStarted(_generationId: number): void {
     this.lastRecoveryStartedAt = performanceClock.now();
+    this.logMutation("recordRecoveryStarted", _generationId);
     this.notify();
   }
 
@@ -252,6 +284,7 @@ export class MeasurementPipeline {
         this.lastRecoveryStartedAt
       );
     }
+    this.logMutation("recordRecoveryCompleted", _generationId);
     this.notify();
   }
 
@@ -266,6 +299,7 @@ export class MeasurementPipeline {
   public recordStaleResultAttempted(_generationId: number): void {
     this.staleResults.attempted++;
     this.updateProtectionRate();
+    this.logMutation("recordStaleResultAttempted", _generationId);
     this.notify();
   }
 
@@ -276,6 +310,7 @@ export class MeasurementPipeline {
     this.staleResults.blocked++;
     this.fence.staleBlockedCount++;
     this.updateProtectionRate();
+    this.logMutation("recordStaleResultBlocked", _generationId);
     this.notify();
   }
 
@@ -296,11 +331,13 @@ export class MeasurementPipeline {
 
   public recordStaleAssistantMessageBlocked(_generationId: number): void {
     this.transcript.staleAssistantMessagesBlocked++;
+    this.logMutation("recordStaleAssistantMessageBlocked", _generationId);
     this.notify();
   }
 
   public recordTranscriptCorruption(_generationId: number): void {
     this.transcript.corruptionCount++;
+    this.logMutation("recordTranscriptCorruption", _generationId);
     this.notify();
   }
 
@@ -344,11 +381,13 @@ export class MeasurementPipeline {
 
   public recordStaleAudioBlocked(_generationId: number): void {
     this.audio.staleAudioStartsBlocked++;
+    this.logMutation("recordStaleAudioBlocked", _generationId);
     this.notify();
   }
 
   public recordAudioResurrection(_generationId: number): void {
     this.audio.resurrectionCount++;
+    this.logMutation("recordAudioResurrection", _generationId);
     this.notify();
   }
 
@@ -360,6 +399,7 @@ export class MeasurementPipeline {
   public recordAudioPlaybackStarted(generationId: number, latencyMs?: number): void {
     this.audio.activeGeneration = generationId;
     this.audio.startLatencyMs = latencyMs ?? 0;
+    this.logMutation("recordAudioPlaybackStarted", generationId);
     this.notify();
   }
 
@@ -370,6 +410,7 @@ export class MeasurementPipeline {
     if (latencyMs !== undefined) {
       this.audio.stopLatencyMs = latencyMs;
     }
+    this.logMutation("recordAudioPlaybackStopped", generationId);
     this.notify();
   }
 
@@ -724,6 +765,7 @@ export class MeasurementPipeline {
       chaosSafetyRate: 100,
     };
 
+    this.logMutation("reset", undefined);
     this.notify();
   }
 
@@ -747,4 +789,15 @@ export class MeasurementPipeline {
   }
 }
 
-export const measurementPipeline = new MeasurementPipeline();
+// Canonical Singleton Anchor on globalThis across all client bundles and HMR
+const globalForPipeline = globalThis as unknown as {
+  __ECHOFENCE_MEASUREMENT_PIPELINE__?: MeasurementPipeline;
+};
+
+export const measurementPipeline: MeasurementPipeline =
+  globalForPipeline.__ECHOFENCE_MEASUREMENT_PIPELINE__ ?? new MeasurementPipeline();
+
+if (!globalForPipeline.__ECHOFENCE_MEASUREMENT_PIPELINE__) {
+  globalForPipeline.__ECHOFENCE_MEASUREMENT_PIPELINE__ = measurementPipeline;
+}
+
