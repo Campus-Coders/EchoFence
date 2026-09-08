@@ -44,6 +44,8 @@ Living document. Update after every component is built.
 | CoreInvariantPanel | `components/evidence/CoreInvariantPanel.tsx` | Core invariant motto banner and machine-derived invariant checks with [PASS/FAIL] verdicts | `.core-invariant-panel`, `.core-invariant-motto`, `.core-invariant-checks`, status pills |
 | GenerationTimeline | `components/evidence/GenerationTimeline.tsx` | Chronological visual flowchart of generation lifecycle events from GenerationAudit | `.generation-timeline-panel`, `.generation-timeline-list`, `.generation-timeline-node`, color badges |
 | ChaosScenarioReplay | `components/evidence/ChaosScenarioReplay.tsx` | Interactive selector and live runner for 7 representative deterministic chaos scenarios | `.chaos-scenario-replay`, `.chaos-replay-tabs`, `.btn-run-scenario`, execution logs |
+| BenchmarkCard | `components/evidence/BenchmarkCard.tsx` | Deterministic synthetic benchmark matrix comparing Naive Baseline vs EchoFence (0% stale speech, 0% stale commits, 100% recovery) | `.benchmark-card`, `.benchmark-table-wrapper`, `.benchmark-table`, `.delta-pill-success`, offline benchmark label |
+| GenerationTakeover | `components/voice/GenerationTakeover.tsx` | Real-time authority transfer visualizer (G1 Working → Mind Change → G1 Superseded → G2 Speaking → G1 Late Blocked) | `.generation-takeover-card`, `.takeover-timeline`, `.takeover-cards-grid`, `.takeover-gen-box`, 5-step flow |
 
 
 

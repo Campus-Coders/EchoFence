@@ -69,39 +69,47 @@ export type RaceDemoResult = {
 
 export type RaceDemoListener = (result: RaceDemoResult) => void;
 
+export function createInitialRaceResult(): RaceDemoResult {
+  return {
+    status: "IDLE",
+    generation1: null,
+    generation2: null,
+    startTimestamp: null,
+    interruptionTimestamp: null,
+    gen2CompletionTimestamp: null,
+    lateCompletionTimestamp: null,
+    staleBlockTimestamp: null,
+    transcriptCorruption: 0,
+    audioResurrections: 0,
+    staleResultsBlocked: 0,
+    recoveryTimeMs: null,
+    toolDelayMs: 4000,
+    invariantsPassed: false,
+    invariants: {
+      generationOwnership: false,
+      transcriptIntegrity: false,
+      audioIntegrity: false,
+      stateIntegrity: false,
+      fenceActive: true,
+    },
+    timeline: [],
+  };
+}
+
 export class RaceDemoController {
   private listeners: Set<RaceDemoListener> = new Set();
-  private state: RaceDemoResult = this.createInitialState();
+  private state: RaceDemoResult = createInitialRaceResult();
 
   private createInitialState(): RaceDemoResult {
-    return {
-      status: "IDLE",
-      generation1: null,
-      generation2: null,
-      startTimestamp: null,
-      interruptionTimestamp: null,
-      gen2CompletionTimestamp: null,
-      lateCompletionTimestamp: null,
-      staleBlockTimestamp: null,
-      transcriptCorruption: 0,
-      audioResurrections: 0,
-      staleResultsBlocked: 0,
-      recoveryTimeMs: null,
-      toolDelayMs: 4000,
-      invariantsPassed: false,
-      invariants: {
-        generationOwnership: false,
-        transcriptIntegrity: false,
-        audioIntegrity: false,
-        stateIntegrity: false,
-        fenceActive: true,
-      },
-      timeline: [],
-    };
+    return createInitialRaceResult();
   }
 
   public getState(): RaceDemoResult {
     return { ...this.state };
+  }
+
+  public getInitialState(): RaceDemoResult {
+    return createInitialRaceResult();
   }
 
   public subscribe(listener: RaceDemoListener): () => void {

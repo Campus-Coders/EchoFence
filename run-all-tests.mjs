@@ -17,15 +17,16 @@ const tests = [
   'test-step17.mjs',
   'test-step18.mjs',
   'test-step19.mjs',
+  'test-general-agent.mjs',
 ];
 
 let totalPassed = 0;
 console.log('==================================================');
-console.log(' RUNNING FULL REGRESSION SUITE (STEPS 4-19)');
+console.log(' RUNNING FULL REGRESSION SUITE (STEPS 4-19 + GENERAL AGENT)');
 console.log('==================================================');
 
 for (const t of tests) {
-  process.stdout.write(`Running ${t.padEnd(16)} `);
+  process.stdout.write(`Running ${t.padEnd(24)} `);
   try {
     const timeout = t.includes("step16") || t.includes("step17") ? 360000 : 180000;
     const out = execSync(`"${process.execPath}" ${t}`, {
@@ -47,5 +48,5 @@ for (const t of tests) {
 }
 
 console.log('==================================================');
-console.log(` ALL 15 TEST SUITES PASSED CLEANLY! Total: ${totalPassed} assertions`);
+console.log(` ALL ${tests.length} TEST SUITES PASSED CLEANLY! Total: ${totalPassed} assertions`);
 console.log('==================================================');

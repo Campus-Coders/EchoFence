@@ -1,85 +1,144 @@
-import React from "react";
-import { MessageSquare, Mic, Volume2 } from "lucide-react";
+"use client";
+
+import React, { useEffect, useRef, useState } from "react";
+import { MessageSquare, Mic, Volume2, ShieldCheck, User, Bot } from "lucide-react";
 import type { ConversationTurn } from "@/types/conversation";
 
 export type TranscriptProps = {
   items?: readonly ConversationTurn[];
+  activeGenerationId?: number;
 };
 
-export function Transcript({ items = [] }: TranscriptProps): React.JSX.Element {
+export function Transcript({ items = [], activeGenerationId }: TranscriptProps): React.JSX.Element {
   const hasItems = items.length > 0;
-  const listRef = React.useRef<HTMLDivElement>(null);
+  const listRef = useRef<HTMLDivElement>(null);
+  const [mounted, setMounted] = useState(false);
 
-  React.useEffect(() => {
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
     if (listRef.current) {
       listRef.current.scrollTop = listRef.current.scrollHeight;
     }
   }, [items]);
 
+  // Determine highest generation present in transcript
+  const maxGenInTranscript = items.reduce(
+    (max, t) => Math.max(max, t.generationId || 0),
+    activeGenerationId || 0
+  );
+
   return (
-    <div className="console-card transcript-card">
+    <div className="console-card transcript-card" data-testid="conversation-transcript-card">
       <div className="console-card-header">
         <div className="flex items-center gap-2">
-          <MessageSquare size={16} className="text-cyan-400" />
-          <span className="console-card-title">Conversation Transcript</span>
+          <div className="transcript-header-icon">
+            <MessageSquare size={16} className="text-accent" />
+          </div>
+          <div>
+            <span className="console-card-title">Live Conversation</span>
+            <span className="transcript-header-sub">
+              Every turn is governed by a monotonic generation authority.
+            </span>
+          </div>
         </div>
+
         <div className="flex items-center gap-2">
-          <span className="status-pill status-pill-ready" style={{ fontSize: "11px", padding: "4px 10px" }}>
+          <span className="status-pill status-pill-ready">
             <span className="status-dot status-dot-pulse" />
-            Provider: Rime
+            RIME ACTIVE
           </span>
-          <span className="status-pill" style={{ fontSize: "11px", padding: "4px 10px" }}>
+          <span className="status-pill font-mono">
             {hasItems ? `${items.length} ${items.length === 1 ? "turn" : "turns"}` : "0 Turns"}
           </span>
         </div>
       </div>
 
       {!hasItems ? (
-        <div className="transcript-empty-state">
-          <div className="transcript-empty-icon">
-            <Mic size={22} />
+        <div className="transcript-empty-state transcript-empty-state-compact">
+          <div className="flex items-center gap-2">
+            <Mic size={18} className="text-accent" />
+            <span className="transcript-empty-title">Speak to start</span>
           </div>
-          <h3 className="transcript-empty-title">Conversation Ready</h3>
           <p className="transcript-empty-desc">
-            EchoFence is initialized and ready. Spoken turns, generation tags, and real-time responses will appear here.
+            Try: <span className="font-semibold text-slate-700">&ldquo;Find me a hotel in Mumbai for Friday.&rdquo;</span>
           </p>
         </div>
       ) : (
-        <div className="transcript-list" ref={listRef}>
-          {items.map((turn) => {
+        <div className="transcript-list" ref={listRef} tabIndex={0} aria-label="Conversation Turns">
+          {items.map((turn, index) => {
             const isUser = turn.role === "user";
-            const dateStr = new Date(turn.timestamp).toLocaleTimeString([], {
-              hour: "2-digit",
-              minute: "2-digit",
-              second: "2-digit",
-            });
+            const genId = turn.generationId || 1;
+            const isSuperseded =
+              maxGenInTranscript > genId &&
+              items.some((t) => (t.generationId || 0) > genId);
+
+            // Safe formatting
+            const timeFormatted = mounted
+              ? new Date(turn.timestamp).toLocaleTimeString([], {
+                  hour: "2-digit",
+                  minute: "2-digit",
+                  second: "2-digit",
+                })
+              : "";
 
             return (
               <div
-                key={turn.id}
-                className={isUser ? "turn-card turn-card-user" : "turn-card turn-card-assistant"}
+                key={turn.id || `turn-${index}`}
+                className={`turn-card ${
+                  isUser ? "turn-card-user" : "turn-card-assistant"
+                } ${isSuperseded ? "turn-card-superseded" : "turn-card-current"}`}
               >
                 <div className="turn-header">
-                  <span
-                    className={
-                      isUser
-                        ? "turn-role-pill turn-role-user"
-                        : "turn-role-pill turn-role-assistant"
-                    }
-                  >
-                    {turn.role}
-                  </span>
-                  <span className="turn-gen-badge">Gen {turn.generationId}</span>
+                  <div className="flex items-center gap-1.5">
+                    {isUser ? (
+                      <span className="turn-avatar turn-avatar-user">
+                        <User size={12} />
+                      </span>
+                    ) : (
+                      <span className="turn-avatar turn-avatar-assistant">
+                        <Bot size={12} />
+                      </span>
+                    )}
+                    <span
+                      className={`turn-role-pill ${
+                        isUser ? "turn-role-user" : "turn-role-assistant"
+                      }`}
+                    >
+                      {isUser ? `YOU · G${genId}` : `ECHOFENCE · G${genId}`}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center gap-1.5">
+                    {isSuperseded ? (
+                      <span className="turn-status-badge turn-badge-superseded" title="This request was superseded by a newer barge-in generation">
+                        SUPERSEDED
+                      </span>
+                    ) : (
+                      <span className="turn-status-badge turn-badge-authoritative" title="Authoritative generation">
+                        AUTHORITATIVE
+                      </span>
+                    )}
+                    <span className="turn-gen-badge">G{genId}</span>
+                  </div>
                 </div>
 
                 <div className="turn-text">{turn.text}</div>
 
                 <div className="turn-footer">
-                  <span>{dateStr}</span>
+                  <span className="turn-timestamp">{timeFormatted}</span>
                   {turn.audioAvailable && (
-                    <span className="voice-notice">
-                      <Volume2 size={12} />
-                      Audio played
+                    <span className="turn-audio-pill">
+                      <Volume2 size={12} className="text-success" />
+                      Spoken via Rime (Coda &middot; Astra)
+                    </span>
+                  )}
+                  {isSuperseded && !turn.audioAvailable && !isUser && (
+                    <span className="turn-blocked-pill">
+                      <ShieldCheck size={12} className="text-error" />
+                      Late Speech Fenced (0ms played)
                     </span>
                   )}
                 </div>

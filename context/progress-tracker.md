@@ -393,3 +393,22 @@ Step 18 consolidates the complete EchoFence evidence architecture into a unified
    - Playwright suites (15/15 tests across travel agent and step 19): all passed.
    - `npx.cmd tsc --noEmit`: 0 errors.
    - `node scratch/verify-hydration.mjs`: 0 hydration errors.
+
+### Milestone — Premium UI/UX Redesign ("Speak. Interrupt. Change your mind.")
+
+1. **Mission & Aesthetic Transformation**:
+   - Transformed EchoFence from an engineering/evidence-heavy console into a judge-friendly, interactive voice product.
+   - Core message: *"Speak. Interrupt. Change your mind."*
+   - Warm/off-white background (`#f8fafc`), clean white surfaces (`#ffffff`), deep navy typography (`#0f172a`), restrained violet accent (`#6366f1`), emerald green for active/speaking (`#10b981`), red only for stale/blocked states (`#ef4444`).
+   - Clean 9-part storytelling hierarchy: Header (`RIME VERIFIED · Coda · Astra`) → Hero → Live Conversation (prominent) → Voice State → Voice Controls (Click-to-talk + Text fallback) → Generation Takeover (primary WOW visualizer) → Interruption Proof summary card → Collapsible Technical Proof ▾ → Deterministic Benchmark (100-race table).
+
+2. **Components Built & Integrated**:
+   - `BenchmarkCard.tsx`: 100-race deterministic matrix table (Naive Baseline vs EchoFence: 100% vs 0% stale speech, 100% vs 0% stale commits, 50% vs 100% recovery), labeled *Offline Benchmark · 0 External API Calls*.
+   - `GenerationTakeover.tsx`: Real-time authority transfer visualizer displaying G1 Working → User Mind Change → G1 Superseded → G2 Active/Spoken → G1 Late Blocked.
+   - `Transcript.tsx`: Upgraded with clear turn role tags (`YOU · G1`, `ECHOFENCE · G1`), subtle opacity for superseded generations, and Rime audio playback indicator.
+   - `VoiceControls.tsx`: Prominent Click-to-Talk button, accessible text input fallback with `SEND`, quick conversation prompts, and preserved `btn-demo-*` test IDs.
+   - `VoiceConsole.tsx`: Reorganized to present the clean narrative upfront while preserving all telemetry and diagnostic components inside a collapsible technical proof accordion (`<details>`).
+
+3. **Invariants Preserved**:
+   - Zero modifications to backend or provider logic.
+   - All 15 test suites and 978 assertions pass without regressions.
