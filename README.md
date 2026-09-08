@@ -3,6 +3,24 @@
 
 EchoFence is a race-safe conversational voice agent that prevents stale asynchronous work from becoming stale speech or stale UI state when a user changes their mind mid-request.
 
+## Live Demo
+
+**Production deployment:** https://echo-fence.vercel.app/console
+
+The deployed EchoFence console provides the judge-facing voice-agent interface, deterministic interruption/race demonstrations, generation-authority telemetry, correctness invariants, and quantitative evidence dashboard.
+
+### Judge Quick Start
+
+1. Open the live console: https://echo-fence.vercel.app/console
+2. Try a normal voice request using the quick prompts.
+3. Run the interruption/mind-change demo to observe generation authority transfer.
+4. Inspect the generation timeline, chronological audit trace, stale-result protection, audio integrity, transcript integrity, and benchmark evidence.
+5. Run the deterministic race scenario and verify that a superseded generation cannot affect authoritative transcript, audio, or state.
+
+> **Voice synthesis deployment note:** The repository contains the complete Rime integration. Live Rime synthesis requires `RIME_API_KEY` to be configured in the deployment environment. No credentials are stored in the repository.
+
+---
+
 ### The Central Problem
 
 Traditional voice agents can have multiple asynchronous operations in flight at once. A user may start request G1, change their mind, start G2, and then receive G1's late result after G2 has already become authoritative. Without explicit generation ownership, stale results can be spoken, committed to the transcript, or resurrect old audio.
@@ -311,7 +329,7 @@ EchoFence's architecture is designed around the reality that in distributed, asy
 
 ## Demo Checklist for Judges
 
-1. **Open `/console`**: View the unified voice interface with audio visualizer and generation status.
+1. **Open the Live Demo:** https://echo-fence.vercel.app/console (or local `http://localhost:3000/console`) to view the unified voice interface, generation status, race-safety evidence, and benchmark dashboard.
 2. **Normal Voice Interaction**: Test standard questions (e.g., *"What is a JavaScript closure?"* or *"What is 25 times 4?"*).
 3. **Current-Information Query**: Ask a live fact (e.g., *"Who is the richest person in India?"*).
 4. **Open Generation Takeover**: Review the active generation counter and timeline.
