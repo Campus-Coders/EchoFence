@@ -222,7 +222,7 @@ EchoFence includes a deterministic synthetic benchmark executing **100 consecuti
 | `lib/conversation-service.ts` | Unified turn orchestration across intent pathways |
 | `components/voice/` | Voice console, transcript, and interactive demo controls |
 | `components/evidence/` | Runtime evidence dashboard, benchmark card, and invariant panels |
-| `tests/` | Playwright browser suites and regression specs |
+| `tests/` | Playwright browser suites and regression specs | 
 
 ---
 
